@@ -1,0 +1,48 @@
+name: 全国实时油价
+description: 92/95/98 号汽油与柴油实时油价小组件 · 自动适配小/中/大号 · 支持调价趋势 · 数据源 m.qiyoujiage.com
+author: Egern 群友 @iBL3ND
+homepage: https://github.com/a13609y/egern-modules
+icon: fuelpump.fill
+
+# ── 模块参数默认值（用户可在「模块设置」里覆盖）────────────────
+compat_arguments:
+  region: hainan/haikou
+  SHOW_TREND: "true"
+  REFRESH_HOURS: 6
+
+compat_arguments_desc: |
+  地区写省份/城市拼音，用 / 分隔，例如 hainan/haikou、guangdong/guangzhou、beijing。
+  完整对照表见：https://m.qiyoujiage.com
+
+# ── 模块设置页自动生成的 UI 控件 ────────────────────────────
+env_schema:
+  region:
+    name: 地区
+    description: 省份/城市拼音，用 / 分隔。例如 hainan/haikou、guangdong/guangzhou，直辖市直接写 beijing。
+    default_value: hainan/haikou
+  SHOW_TREND:
+    name: 显示调价趋势
+    description: 在组件上显示下一次调价的方向与幅度
+    options:
+      - "true"
+      - "false"
+  REFRESH_HOURS:
+    name: 刷新间隔（小时）
+    description: 小组件刷新提示间隔，实际刷新由系统调度，不保证精确
+    default_value: "6"
+
+dns: {}
+
+scriptings:
+  - generic:
+      name: oil-price
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/oil-price/oil-price.js
+      timeout: 15
+      env:
+        region: "{{{region}}}"
+        SHOW_TREND: "{{{SHOW_TREND}}}"
+        REFRESH_HOURS: "{{{REFRESH_HOURS}}}"
+
+widgets:
+  - name: 实时油价
+    script_name: oil-price
