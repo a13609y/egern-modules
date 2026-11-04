@@ -1,0 +1,72 @@
+name: 节日倒数
+description: 距离下一个节日还有多少天 · 春节/元宵/清明/端午/七夕/中秋/重阳/国庆/元旦/除夕 + 自定义纪念日 · 农历数据内置到 2050 年，不联网 · 小/中/大号与锁屏组件
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules/tree/main/widgets/holiday-countdown
+icon: calendar
+
+# ── 模块参数默认值（用户可在「模块设置」里覆盖）────────────────
+compat_arguments:
+  TITLE: 节日倒数
+  TRANSPARENT: "false"
+  THEME: auto
+  GRID_ITEMS: "8"
+  ANNIVERSARIES: ""
+
+compat_arguments_desc: |
+  节日按「还有几天」自动排序，最近的排最前，当天显示「今天」。
+  背景会自动切换：节假日用暖橙、周末用冷蓝、工作日用浅灰，深浅色各自一套。
+  开启透明模式后不画背景，只留一圈极淡描边，壁纸完整透出来。
+
+env_schema:
+  TITLE:
+    name: 标题
+    description: 小组件左上角显示的标题
+    default_value: 节日倒数
+  TRANSPARENT:
+    name: 透明模式
+    description: 不画背景渐变，只保留极淡描边，露出壁纸
+    default_value: "false"
+    options:
+      - "false"
+      - "true"
+  THEME:
+    name: 背景主题
+    description: auto = 节日当天暖橙、周末冷蓝、其余浅灰；也可以强制固定一种
+    default_value: auto
+    options:
+      - auto
+      - fest
+      - weekend
+      - workday
+  GRID_ITEMS:
+    name: 大号显示条数
+    description: 大号组件最多显示几个节日（2-12），中号固定显示 4 个、小号 1 个
+    default_value: "8"
+  ANNIVERSARIES:
+    name: 自定义纪念日
+    description: 用逗号分隔，格式「名字=05-20」每年循环，或「名字=2026-02-01」只算一次
+    default_value: ""
+
+dns: {}
+
+scriptings:
+  - generic:
+      name: holiday-countdown
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/holiday-countdown/holiday-countdown.js
+      timeout: 15
+      env:
+        TITLE: "{{{TITLE}}}"
+        TRANSPARENT: "{{{TRANSPARENT}}}"
+        THEME: "{{{THEME}}}"
+        GRID_ITEMS: "{{{GRID_ITEMS}}}"
+        ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
+
+widgets:
+  - name: 节日倒数
+    script_name: holiday-countdown
+    env:
+      TITLE: "{{{TITLE}}}"
+      TRANSPARENT: "{{{TRANSPARENT}}}"
+      THEME: "{{{THEME}}}"
+      GRID_ITEMS: "{{{GRID_ITEMS}}}"
+      ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
