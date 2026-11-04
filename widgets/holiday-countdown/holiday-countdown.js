@@ -327,9 +327,9 @@ function canvasOf(ctx, family) {
 }
 
 var FAMILY_STYLE = {
-  systemSmall: { pad: 9, cols: 2, name: 9, day: 11, num: 28, unit: 10, title: 11, gapRow: 4, gapGrid: 4 },
-  systemMedium: { pad: 9, cols: 3, name: 9, day: 10, num: 24, unit: 9, title: 11, gapRow: 4, gapGrid: 5 },
-  systemLarge: { pad: 13, cols: 3, name: 11, day: 14, num: 42, unit: 14, title: 13, gapRow: 6, gapGrid: 10 },
+  systemSmall: { pad: 9, cols: 2, name: 9, day: 11, num: 28, unit: 10, title: 11, heroName: 11, gapRow: 4, gapGrid: 4 },
+  systemMedium: { pad: 9, cols: 3, name: 9, day: 10, num: 26, unit: 10, title: 11, heroName: 17, gapRow: 4, gapGrid: 5 },
+  systemLarge: { pad: 13, cols: 3, name: 11, day: 14, num: 42, unit: 14, title: 13, heroName: 21, gapRow: 6, gapGrid: 10 },
 };
 
 function familyStyle(family) {
@@ -380,14 +380,17 @@ function headerRow(title, today, st) {
   ], 4);
 }
 
-function bigNumber(it, st) {
-  if (it.days === 0) {
-    return mkText('今天', Math.round(st.num * 0.9), 'heavy', C.red, { maxLines: 1, minScale: 0.5 });
-  }
-  return mkRow([
-    mkText(String(it.days), st.num, 'heavy', catColor(it.cat, false), { maxLines: 1, minScale: 0.4 }),
-    mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
-  ], 2, { alignItems: 'end' });
+function bigNumber(it, st, nameSize) {
+  var isToday = it.days === 0;
+  var kids = [
+    mkText(it.name, nameSize, 'heavy', isToday ? C.red : C.main, { maxLines: 1, minScale: 0.55 }),
+    { type: 'spacer', flex: 1 },
+    mkText(isToday ? '今天' : String(it.days), isToday ? Math.round(st.num * 0.85) : st.num, 'heavy',
+      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.4 }),
+    { type: 'spacer', flex: 1 },
+  ];
+  if (!isToday) kids.push(mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }));
+  return mkRow(kids, 4, { alignItems: 'end' });
 }
 
 function pill(it, st) {
@@ -451,20 +454,18 @@ function buildGrid(ctx, family, items, title, today, nowMs, maxItems) {
         mkText(today.m + '/' + today.d, st.title * 0.8, 'medium', C.muted, { maxLines: 1 }),
       ], 4));
       children.push(mkSpacer(2));
-      children.push(mkRow([{ type: 'spacer', flex: 1 }, bigNumber(next, st), { type: 'spacer', flex: 1 }], 0, { alignItems: 'end' }));
+      children.push(mkRow([
+        { type: 'spacer', flex: 1 },
+        mkText(next.days === 0 ? '今天' : String(next.days), next.days === 0 ? Math.round(st.num * 0.85) : st.num, 'heavy',
+          catColor(next.cat, next.days === 0), { maxLines: 1, minScale: 0.4 }),
+        next.days === 0 ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+        { type: 'spacer', flex: 1 },
+      ].filter(Boolean), 3, { alignItems: 'end' }));
       children.push(mkSpacer(st.gapGrid));
     } else {
       children.push(headerRow(title, today, st));
       children.push(mkSpacer(st.gapGrid));
-      children.push(mkRow([
-        { type: 'spacer', flex: 1 },
-        mkText(next.name, st.name + 3, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1, minScale: 0.7 }),
-        mkSpacer(6),
-        bigNumber(next, st),
-        mkSpacer(6),
-        pill(next, st),
-        { type: 'spacer', flex: 1 },
-      ], 4, { alignItems: 'end' }));
+      children.push(bigNumber(next, st, st.heroName));
     }
 
     for (var i = 0; i < rest.length; i += st.cols) {
