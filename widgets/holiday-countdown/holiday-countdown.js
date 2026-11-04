@@ -382,15 +382,22 @@ function headerRow(title, today, st) {
 
 function bigNumber(it, st, nameSize) {
   var isToday = it.days === 0;
+  // 三段固定间距、整组居中：名字和「天」都贴着数字，外侧留白由两个弹性空位平分
+  var gapIn = Math.round(st.num * 0.42);   // 名字 ↔ 数字
+  var gapUnit = Math.round(st.num * 0.2);  // 数字 ↔ 天
   var kids = [
-    mkText(it.name, nameSize, 'heavy', isToday ? C.red : C.main, { maxLines: 1, minScale: 0.55 }),
     { type: 'spacer', flex: 1 },
+    mkText(it.name, nameSize, 'heavy', isToday ? C.red : C.main, { maxLines: 1, minScale: 0.55 }),
+    mkSpacer(gapIn),
     mkText(isToday ? '今天' : String(it.days), isToday ? Math.round(st.num * 0.85) : st.num, 'heavy',
       catColor(it.cat, isToday), { maxLines: 1, minScale: 0.4 }),
-    { type: 'spacer', flex: 1 },
   ];
-  if (!isToday) kids.push(mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }));
-  return mkRow(kids, 4, { alignItems: 'end' });
+  if (!isToday) {
+    kids.push(mkSpacer(gapUnit));
+    kids.push(mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }));
+  }
+  kids.push({ type: 'spacer', flex: 1 });
+  return mkRow(kids, 0, { alignItems: 'end' });
 }
 
 function pill(it, st) {
