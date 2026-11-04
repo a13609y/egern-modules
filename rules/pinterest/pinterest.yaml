@@ -1,0 +1,56 @@
+name: Pinterest 去广告
+description: 去掉 Pinterest 信息流、搜索结果、“更多类似内容”里的推广 Pin（Promoted Pins），并拦掉广告与点击追踪域名。图片 CDN（i.pinimg.com / s.pinimg.com）不动。接口解析失败时原样放行，不会白屏。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules/tree/main/rules/pinterest
+icon: https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/pinterest/icon.png
+
+# ---------------------------------------------------------------
+# 说明
+# 1. 主体是 scriptings 里的 http_response 脚本（pinterest.js）：
+#    匹配整个 api.pinterest.com，递归清掉带 is_promoted / is_sponsored /
+#    ad_id / campaign_id 等标记的条目以及 ads / promoted_pins 这类广告容器。
+#    （可莉的 Surge 版只钉死两个固定路径，App 换接口就失效，这里改宽了匹配。）
+# 2. 下面的域名 REJECT 只针对明确的广告与点击追踪域名，不走 MITM。
+# 3. 必须开启 MITM 并在系统里信任 Egern 证书，否则改不了 HTTPS 响应。
+# ---------------------------------------------------------------
+
+rules:
+  # 广告 / 转化追踪域名，直接拒绝
+  - domain:
+      match: ads.pinterest.com
+      policy: REJECT
+  - domain:
+      match: ad.pinterest.com
+      policy: REJECT
+  - domain:
+      match: ct.pinterest.com
+      policy: REJECT
+  - domain:
+      match: trk.pinterest.com
+      policy: REJECT
+  # 阻止 api.pinterest.com 走 QUIC(HTTP/3)，否则 UDP 443 绕过 MITM，脚本永远不跑
+  - and:
+      match:
+        - protocol:
+            match: 'udp'
+        - dest_port:
+            match: '443'
+        - domain:
+            match: 'api.pinterest.com'
+      policy: REJECT
+
+mitm:
+  hostnames:
+    - api.pinterest.com
+
+scriptings:
+  - http_response:
+      name: pinterest_remove_ads
+      match: '^https?:\/\/api\d*\.pinterest\.com\/'
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/pinterest/pinterest.js
+      body_required: true
+      max_size: 8388608
+      timeout: 10
+      update_interval: 86400
+
+dns: {}
