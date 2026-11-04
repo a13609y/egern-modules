@@ -37,7 +37,7 @@ alloflights/shadowrocket-rules ──每天 03:23 UTC──▶ 本仓库 coolapk
 - **上游 → 本仓库**：`.github/workflows/sync-coolapk.yml` 每天跑 `rules/coolapk/sync.py`，把上游的 Surge/Shadowrocket 模块拆成 Egern 的 `rules` / `url_rewrites` / `mitm` / `scriptings`；内容有变化才提交。生成结果必须先过 `node --check` + 10 条行为测试 + YAML 断言，否则不提交。
 - **本仓库 → 设备**：模块里 `update_interval: 86400`，Egern 默认 24 小时检查一次模块更新，脚本跟着模块一起拉。
 
-想手动催一次：仓库 Actions → `sync-coolapk` → Run workflow。
+想手动催一次：仓库 Actions → `sync-coolapk` → Run workflow。连续推送时工作流开了 `cancel-in-progress`，只跑最新一次。
 
 ## 转换做了什么（为什么不能直接订阅上游）
 

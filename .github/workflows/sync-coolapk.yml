@@ -12,6 +12,11 @@ on:
 permissions:
   contents: write
 
+# 连续推送时只保留最新一次，避免旧提交排队跑出假失败
+concurrency:
+  group: sync-coolapk
+  cancel-in-progress: true
+
 jobs:
   sync:
     runs-on: ubuntu-latest
