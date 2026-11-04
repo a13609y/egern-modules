@@ -451,17 +451,19 @@ function buildGrid(ctx, family, items, title, today, nowMs, maxItems) {
         mkText(today.m + '/' + today.d, st.title * 0.8, 'medium', C.muted, { maxLines: 1 }),
       ], 4));
       children.push(mkSpacer(2));
-      children.push(bigNumber(next, st));
+      children.push(mkRow([{ type: 'spacer', flex: 1 }, bigNumber(next, st), { type: 'spacer', flex: 1 }], 0, { alignItems: 'end' }));
       children.push(mkSpacer(st.gapGrid));
     } else {
       children.push(headerRow(title, today, st));
       children.push(mkSpacer(st.gapGrid));
       children.push(mkRow([
+        { type: 'spacer', flex: 1 },
         mkText(next.name, st.name + 3, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1, minScale: 0.7 }),
         mkSpacer(6),
         bigNumber(next, st),
-        mkSpacer(),
+        mkSpacer(6),
         pill(next, st),
+        { type: 'spacer', flex: 1 },
       ], 4, { alignItems: 'end' }));
     }
 
