@@ -2,10 +2,11 @@
 //
 // 结构参考：lylywayr/NetWork-Module「时光倒数」（布局与配色表）
 // 透明模式参考：pronounAI/Egern Countdown-Widget
-// 但日期数据不再是硬编码的一两年：农历节日表一次性生成到 2050 年，固定节日与清明按公式算，
-// 所以 2050 年之前都不需要维护。
 //
-// 支持的家庭：systemSmall / systemMedium / systemLarge / accessoryRectangular / accessoryCircular / accessoryInline
+// 数据全部内置、运行时不联网：
+//   · 农历节日 2024–2050（lunardate 生成）
+//   · 二十四节气 2024–2050（cnlunar 生成）
+//   · 固定公历节日与「某月第 n 个周几」类（母亲节/父亲节/感恩节）现算
 
 // 农历节日表（春节,元宵,端午,七夕,中秋,重阳,除夕）—— 由 lunardate 一次性生成，运行时无需计算农历
 var LUNAR_FEST = {
@@ -38,23 +39,95 @@ var LUNAR_FEST = {
   2050: "01-23,02-06,06-23,08-23,09-30,10-24,01-22",
 };
 
-// 每条：key, 名称, 图标, 类型
-//   fixed  → 固定公历 MM-DD
-//   lunar  → 农历节日，idx 是 LUNAR_FEST 里那一列
-//   term   → 节气（目前只有清明，用 21 世纪公式算）
-var FESTIVALS = [
-  { key: 'newyear', name: '元旦', icon: 'sparkles', kind: 'fixed', md: '01-01' },
-  { key: 'chunjie', name: '春节', icon: 'house.fill', kind: 'lunar', idx: 0 },
-  { key: 'yuanxiao', name: '元宵', icon: 'moon.stars.fill', kind: 'lunar', idx: 1 },
-  { key: 'qingming', name: '清明', icon: 'leaf.fill', kind: 'term' },
-  { key: 'labor', name: '劳动节', icon: 'hammer.fill', kind: 'fixed', md: '05-01' },
-  { key: 'duanwu', name: '端午', icon: 'sailboat.fill', kind: 'lunar', idx: 2 },
-  { key: 'qixi', name: '七夕', icon: 'heart.fill', kind: 'lunar', idx: 3 },
-  { key: 'zhongqiu', name: '中秋', icon: 'moon.fill', kind: 'lunar', idx: 4 },
-  { key: 'chongyang', name: '重阳', icon: 'figure.walk', kind: 'lunar', idx: 5 },
-  { key: 'guoqing', name: '国庆', icon: 'flag.fill', kind: 'fixed', md: '10-01' },
-  { key: 'chuxi', name: '除夕', icon: 'party.popper.fill', kind: 'lunar', idx: 6 },
+// 二十四节气「日」表：每年 24 个两位数字，依次为
+// 小寒 大寒 立春 雨水 惊蛰 春分 清明 谷雨 立夏 小满 芒种 夏至 小暑 大暑 立秋 处暑 白露 秋分 寒露 霜降 立冬 小雪 大雪 冬至
+var TERM_DAYS = {
+  2024: "062004190520041905200521062207220722082307220621",
+  2025: "052003180520042005210521072207230723082307220721",
+  2026: "052004180520052005210521072307230723082307220722",
+  2027: "052004190621052006210621072308230823082307220722",
+  2028: "062004190520041905200521062207220722082307220621",
+  2029: "052003180520042005210521072207230723082307220721",
+  2030: "052004180520052005210521072307230723082307220722",
+  2031: "052004190621052006210621072308230823082307220722",
+  2032: "062004190520041905200521062207220722082307220621",
+  2033: "052003180520042005210521072207230723082307220721",
+  2034: "052004180520052005210521072307230723082307220722",
+  2035: "052004190621052005210621072307230823082307220722",
+  2036: "062004190520041905200521062207220722082307220621",
+  2037: "052003180520042005210521072207230723082307220721",
+  2038: "052004180520052005210521072307230723082307220722",
+  2039: "052004190621052005210621072307230823082307220722",
+  2040: "062004190520041905200521062207220722082307220621",
+  2041: "052003180520042005200521072207230722082307220721",
+  2042: "052004180520042005210521072307230723082307220722",
+  2043: "052004190621052005210621072307230823082307220722",
+  2044: "062004190520041905200521062207220722072307220621",
+  2045: "052003180520041905200521072207230722082307220721",
+  2046: "052004180520042005210521072207230723082307220722",
+  2047: "052004190621052005210621072307230823082307220722",
+  2048: "062004190520041905200520062207220722072307210621",
+  2049: "051903180520041905200521062207220722082307220721",
+  2050: "052003180520042005210521072207230723082307220722",
+};
+
+// ── 节日清单 ────────────────────────────────────────────────
+// kind: fixed(公历) / lunar(农历) / term(节气) / nth(某月第 n 个周几)
+// cat:  sys(法定与传统) / term(节气) / west(现代与西方节日) / custom(自定义)
+
+var TERM_NAMES = ['小寒', '大寒', '立春', '雨水', '惊蛰', '春分', '清明', '谷雨',
+  '立夏', '小满', '芒种', '夏至', '小暑', '大暑', '立秋', '处暑',
+  '白露', '秋分', '寒露', '霜降', '立冬', '小雪', '大雪', '冬至'];
+
+var FIXED = [
+  ['元旦', '01-01', 'sys'],
+  ['情人节', '02-14', 'west'],
+  ['妇女节', '03-08', 'west'],
+  ['愚人节', '04-01', 'west'],
+  ['劳动节', '05-01', 'sys'],
+  ['青年节', '05-04', 'west'],
+  ['表白日', '05-20', 'west'],
+  ['儿童节', '06-01', 'west'],
+  ['教师节', '09-10', 'west'],
+  ['万圣夜', '10-31', 'west'],
+  ['光棍节', '11-11', 'west'],
+  ['双十二', '12-12', 'west'],
+  ['平安夜', '12-24', 'west'],
+  ['圣诞节', '12-25', 'west'],
+  ['跨年夜', '12-31', 'west'],
+  ['国庆', '10-01', 'sys'],
 ];
+
+var LUNAR = [
+  ['春节', 0],
+  ['元宵', 1],
+  ['端午', 2],
+  ['七夕', 3],
+  ['中秋', 4],
+  ['重阳', 5],
+  ['除夕', 6],
+];
+
+// 第 n 个周几：nth 从 1 开始，weekday 0=周日
+var NTH = [
+  ['母亲节', 5, 0, 2],
+  ['父亲节', 6, 0, 3],
+  ['感恩节', 11, 4, 4],
+];
+
+var FESTIVALS = [];
+FIXED.forEach(function (f) {
+  FESTIVALS.push({ name: f[0], kind: 'fixed', md: f[1], cat: f[2] });
+});
+LUNAR.forEach(function (f) {
+  FESTIVALS.push({ name: f[0], kind: 'lunar', idx: f[1], cat: 'sys' });
+});
+NTH.forEach(function (f) {
+  FESTIVALS.push({ name: f[0], kind: 'nth', month: f[1], weekday: f[2], nth: f[3], cat: 'west' });
+});
+for (var ti = 0; ti < TERM_NAMES.length; ti++) {
+  FESTIVALS.push({ name: TERM_NAMES[ti], kind: 'term', idx: ti, cat: 'term' });
+}
 
 // ── 配色（取自「时光倒数」，亮/暗各一套）────────────────────────
 var C = {
@@ -66,6 +139,7 @@ var C = {
   muted: { light: '#8E8E93', dark: '#8E8E93' },
   gold: { light: '#B58A28', dark: '#D6A53A' },
   red: { light: '#CA3B32', dark: '#FF453A' },
+  green: { light: '#5C7A5C', dark: '#8FBF8F' },
 };
 
 var DAY = 86400000;
@@ -102,10 +176,17 @@ function beijingToday(nowMs) {
   return { y: y, m: m, d: d, week: bj.getUTCDay(), ms: Date.UTC(y, m - 1, d) };
 }
 
-// 21 世纪清明：day = floor(yy*0.2422 + 4.81) - floor(yy/4)
+// 21 世纪清明：day = floor(yy*0.2422 + 4.81) - floor(yy/4)，表用完时兜底
 function qingmingDay(y) {
   var yy = y % 100;
   return Math.floor(yy * 0.2422 + 4.81) - Math.floor(yy / 4);
+}
+
+// 某月第 n 个周几
+function nthWeekday(y, m, weekday, nth) {
+  var first = new Date(Date.UTC(y, m - 1, 1));
+  var offset = (weekday - first.getUTCDay() + 7) % 7;
+  return 1 + offset + (nth - 1) * 7;
 }
 
 // 某年某节日对应的公历 {m,d}，没有数据返回 null
@@ -113,8 +194,14 @@ function festDate(f, y) {
   if (f.kind === 'fixed') {
     return { m: parseInt(f.md.slice(0, 2), 10), d: parseInt(f.md.slice(3, 5), 10) };
   }
+  if (f.kind === 'nth') {
+    return { m: f.month, d: nthWeekday(y, f.month, f.weekday, f.nth) };
+  }
   if (f.kind === 'term') {
-    return { m: 4, d: qingmingDay(y) };
+    var trow = TERM_DAYS[y];
+    if (trow) return { m: Math.floor(f.idx / 2) + 1, d: parseInt(trow.substr(f.idx * 2, 2), 10) };
+    if (f.idx === 6) return { m: 4, d: qingmingDay(y) };
+    return null;
   }
   var row = LUNAR_FEST[y];
   if (!row) return null;
@@ -136,17 +223,16 @@ function parseCustom(raw) {
     if (i < 0) return;
     var name = seg.slice(0, i).trim();
     var val = seg.slice(i + 1).trim();
+    if (!name) return;
     var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(val);
     if (m) {
-      out.push({ name: name, icon: 'heart.fill', once: { y: +m[1], m: +m[2], d: +m[3] }, raw: val });
+      out.push({ name: name, once: { y: +m[1], m: +m[2], d: +m[3] }, md: m[2] + '/' + m[3] });
       return;
     }
     m = /^(\d{1,2})-(\d{1,2})$/.exec(val);
     if (m) {
-      out.push({ name: name, icon: 'star.fill', md: { m: +m[1], d: +m[2] }, raw: val });
-      return;
+      out.push({ name: name, md: { m: +m[1], d: +m[2] }, mdText: m[1] + '/' + m[2] });
     }
-    // 只有名字 → 当作今天起算的「第 N 天」没意义，忽略
   });
   return out;
 }
@@ -154,8 +240,12 @@ function parseCustom(raw) {
 // ── 计算接下来要显示的条目 ────────────────────────────────────
 function buildItems(today, env) {
   var items = [];
+  var showTerms = String(env.SHOW_TERMS == null ? 'true' : env.SHOW_TERMS).toLowerCase() !== 'false';
+  var showWest = String(env.SHOW_WESTERN == null ? 'true' : env.SHOW_WESTERN).toLowerCase() !== 'false';
 
   FESTIVALS.forEach(function (f) {
+    if (!showTerms && f.cat === 'term') return;
+    if (!showWest && f.cat === 'west') return;
     for (var y = today.y; y <= today.y + 2; y++) {
       var dt = festDate(f, y);
       if (!dt) continue;
@@ -163,7 +253,7 @@ function buildItems(today, env) {
       if (ms < today.ms) continue;
       items.push({
         name: f.name,
-        icon: f.icon,
+        cat: f.cat,
         days: Math.round((ms - today.ms) / DAY),
         md: dt.m + '/' + dt.d,
       });
@@ -172,15 +262,17 @@ function buildItems(today, env) {
   });
 
   parseCustom(env.ANNIVERSARIES).forEach(function (c) {
+    var ms, mdText;
     if (c.once) {
-      var ms = Date.UTC(c.once.y, c.once.m - 1, c.once.d);
-      if (ms < today.ms) return; // 一次性纪念日过了就不显示
-      items.push({ name: c.name, icon: c.icon, days: Math.round((ms - today.ms) / DAY), md: c.once.m + '/' + c.once.d });
-      return;
+      ms = Date.UTC(c.once.y, c.once.m - 1, c.once.d);
+      mdText = c.md;
+      if (ms < today.ms) return;
+    } else {
+      var thisYear = Date.UTC(today.y, c.md.m - 1, c.md.d);
+      ms = thisYear >= today.ms ? thisYear : Date.UTC(today.y + 1, c.md.m - 1, c.md.d);
+      mdText = c.mdText;
     }
-    var thisYear = Date.UTC(today.y, c.md.m - 1, c.md.d);
-    var ms2 = thisYear >= today.ms ? thisYear : Date.UTC(today.y + 1, c.md.m - 1, c.md.d);
-    items.push({ name: c.name, icon: c.icon, days: Math.round((ms2 - today.ms) / DAY), md: c.md.m + '/' + c.md.d });
+    items.push({ name: c.name, cat: 'custom', days: Math.round((ms - today.ms) / DAY), md: mdText });
   });
 
   items.sort(function (a, b) {
@@ -196,15 +288,17 @@ function daysLabel(d) {
   return String(d);
 }
 
+function catColor(cat, isToday) {
+  if (isToday) return C.red;
+  if (cat === 'term') return C.green;
+  if (cat === 'west') return C.gold;
+  return C.main;
+}
+
 // ── 背景 ───────────────────────────────────────────────────
-function backgroundProps(themeKey, transparent) {
-  if (transparent) return { bg: null, extra: null };
+function backgroundGradient(themeKey) {
   var colors = themeKey === 'fest' ? C.bgFest : themeKey === 'weekend' ? C.bgWeekend : C.bgWorkday;
-  return {
-    bg: { type: 'linear', colors: colors, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
-    // 透明模式才需要描边；这里非透明返回 null
-    extra: null,
-  };
+  return { type: 'linear', colors: colors, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } };
 }
 
 function themeOf(items, today, env) {
@@ -226,44 +320,50 @@ function refreshAt(today, nowMs) {
 // ── 布局 ───────────────────────────────────────────────────
 function headerRow(title, today) {
   return mkRow([
-    mkIcon('hourglass.circle.fill', C.gold, 14),
-    mkText(title, 13, 'heavy', C.main, { maxLines: 1 }),
+    mkIcon('hourglass.circle.fill', C.gold, 12),
+    mkText(title, 12, 'heavy', C.main, { maxLines: 1, minScale: 0.8 }),
     mkSpacer(),
-    mkText(today.m + '/' + today.d, 10, 'medium', C.muted, { maxLines: 1 }),
-  ], 5);
+    mkText(today.m + '/' + today.d, 9, 'medium', C.muted, { maxLines: 1 }),
+  ], 4);
+}
+
+// 紧凑格子：名字一行，天数一行
+function cell(it, nameSize, daySize) {
+  var isToday = it.days === 0;
+  return mkCol([
+    mkText(it.name, nameSize, 'medium', isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.7 }),
+    mkRow([
+      mkText(daysLabel(it.days), daySize, 'heavy', catColor(it.cat, isToday), { maxLines: 1, minScale: 0.6 }),
+      isToday ? null : mkText('天', Math.max(8, daySize - 6), 'medium', C.muted, { maxLines: 1 }),
+    ].filter(Boolean), 1),
+  ], 0, { flex: 1 });
 }
 
 function buildSmall(items, title, today, nowMs) {
   var next = items[0];
-  var second = items[1];
+  var rest = items.slice(1, 4);
   var children = [headerRow(title, today)];
 
   if (!next) {
-    children.push(mkSpacer(8), mkText('没有数据', 12, 'medium', C.muted));
+    children.push(mkSpacer(6), mkText('没有数据', 11, 'medium', C.muted));
   } else {
-    children.push(mkSpacer(6));
-    children.push(mkRow([
-      mkIcon(next.icon, C.gold, 13),
-      mkText(next.name, 12, 'semibold', C.sub, { maxLines: 1 }),
-    ], 4));
     children.push(mkSpacer(2));
-    if (next.days === 0) {
-      children.push(mkText('今天', 30, 'heavy', C.red, { maxLines: 1, minScale: 0.6 }));
-    } else {
-      children.push(mkRow([
-        mkText(String(next.days), 34, 'heavy', C.red, { maxLines: 1, minScale: 0.5 }),
-        mkText('天', 13, 'medium', C.sub),
-      ], 3));
-    }
-    if (second) {
+    children.push(mkText(next.name, 12, 'semibold', next.days === 0 ? C.red : C.sub, { maxLines: 1 }));
+    children.push(next.days === 0
+      ? mkText('今天', 28, 'heavy', C.red, { maxLines: 1, minScale: 0.6 })
+      : mkRow([
+          mkText(String(next.days), 32, 'heavy', catColor(next.cat, false), { maxLines: 1, minScale: 0.5 }),
+          mkText('天', 12, 'medium', C.sub),
+        ], 2));
+    if (rest.length) {
       children.push(mkSpacer(2));
-      children.push(mkText('下一个 ' + second.name + ' ' + daysLabel(second.days), 9, 'medium', C.muted, { maxLines: 1, minScale: 0.8 }));
+      children.push(mkText(rest.map(function (it) { return it.name + ' ' + daysLabel(it.days); }).join(' · '), 8, 'medium', C.muted, { maxLines: 1, minScale: 0.7 }));
     }
   }
 
   return {
     type: 'widget',
-    padding: 12,
+    padding: 11,
     gap: 0,
     children: children,
     refreshAfter: refreshAt(today, nowMs),
@@ -272,73 +372,63 @@ function buildSmall(items, title, today, nowMs) {
 
 function buildMedium(items, title, today, nowMs) {
   var next = items[0];
-  var rest = items.slice(1, 4);
-
-  var children = [headerRow(title, today), mkSpacer(8)];
+  var rest = items.slice(1, 7); // 6 个，两行三列
+  var children = [headerRow(title, today)];
 
   if (!next) {
-    children.push(mkText('没有可显示的节日', 12, 'medium', C.muted));
+    children.push(mkSpacer(6), mkText('没有可显示的节日', 11, 'medium', C.muted));
   } else {
+    children.push(mkSpacer(2));
     children.push(mkRow([
       mkCol([
-        mkText(next.name, 18, 'heavy', C.main, { maxLines: 1 }),
-        mkText(next.md, 10, 'medium', C.muted, { maxLines: 1 }),
-      ], 1),
+        mkText(next.name, 15, 'heavy', C.main, { maxLines: 1 }),
+        mkText(next.md, 9, 'medium', C.muted, { maxLines: 1 }),
+      ], 0),
       mkSpacer(),
       next.days === 0
-        ? mkText('今天', 24, 'heavy', C.red, { maxLines: 1 })
+        ? mkText('今天', 20, 'heavy', C.red, { maxLines: 1 })
         : mkRow([
-            mkText(String(next.days), 30, 'heavy', C.red, { maxLines: 1, minScale: 0.6 }),
-            mkText('天', 12, 'medium', C.sub),
+            mkText(String(next.days), 26, 'heavy', catColor(next.cat, false), { maxLines: 1, minScale: 0.6 }),
+            mkText('天', 10, 'medium', C.sub),
           ], 2),
-    ], 6));
+    ], 4));
   }
 
   if (rest.length) {
-    children.push(mkSpacer(10));
-    children.push(mkRow(rest.map(function (it) {
-      return mkCol([
-        mkText(it.name, 11, 'medium', C.sub, { maxLines: 1 }),
-        mkText(daysLabel(it.days) === '今天' ? '今天' : it.days + '天', 14, 'bold', C.main, { maxLines: 1, minScale: 0.7 }),
-      ], 1, { flex: 1 });
-    }), 8));
+    children.push(mkSpacer(6));
+    var rows = [];
+    for (var i = 0; i < rest.length; i += 3) {
+      var chunk = rest.slice(i, i + 3).map(function (it) { return cell(it, 10, 13); });
+      while (chunk.length < 3) chunk.push({ type: 'spacer', flex: 1 });
+      rows.push(mkRow(chunk, 8, { flex: 1 }));
+    }
+    rows.forEach(function (r) { children.push(r); });
   }
 
   return {
     type: 'widget',
-    padding: 14,
+    padding: 11,
     children: children,
     refreshAfter: refreshAt(today, nowMs),
   };
 }
 
 function buildLarge(items, title, today, nowMs, maxItems) {
-  var limit = Math.max(2, Math.min(items.length, maxItems || 8));
+  var limit = Math.max(3, Math.min(items.length, maxItems || 15));
   var show = items.slice(0, limit);
+  var children = [headerRow(title, today), mkSpacer(6)];
+
   var rows = [];
-
-  for (var i = 0; i < show.length; i += 2) {
-    var pair = show.slice(i, i + 2);
-    var cells = pair.map(function (it) {
-      var isToday = it.days === 0;
-      return mkRow([
-        mkIcon(it.icon, isToday ? C.red : C.gold, 13),
-        mkText(it.name, 13, 'semibold', C.main, { maxLines: 1 }),
-        mkSpacer(),
-        mkText(daysLabel(it.days), isToday ? 13 : 15, 'heavy', isToday ? C.red : C.main, { maxLines: 1, minScale: 0.7 }),
-        isToday ? null : mkText('天', 9, 'medium', C.muted),
-      ].filter(Boolean), 4, { flex: 1 });
-    });
-    if (cells.length === 1) cells.push(mkRow([], 0, { flex: 1 }));
-    rows.push(mkRow(cells, 14, { flex: 1 }));
+  for (var i = 0; i < show.length; i += 3) {
+    var chunk = show.slice(i, i + 3).map(function (it) { return cell(it, 11, 15); });
+    while (chunk.length < 3) chunk.push({ type: 'spacer', flex: 1 });
+    rows.push(mkRow(chunk, 10, { flex: 1 }));
   }
-
+  if (!rows.length) rows.push(mkText('没有可显示的节日', 11, 'medium', C.muted));
   return {
     type: 'widget',
-    padding: 16,
-    children: [headerRow(title, today), mkSpacer(8)].concat(
-      rows.length ? rows : [mkText('没有可显示的节日', 12, 'medium', C.muted)]
-    ),
+    padding: 13,
+    children: children.concat(rows),
     refreshAfter: refreshAt(today, nowMs),
   };
 }
@@ -377,7 +467,7 @@ export default async function (ctx) {
   var today = beijingToday(nowMs);
   var title = String(env.TITLE || '节日倒数');
   var transparent = String(env.TRANSPARENT || 'false').toLowerCase() === 'true';
-  var maxItems = parseInt(env.GRID_ITEMS || '8', 10) || 8;
+  var maxItems = parseInt(env.GRID_ITEMS || '15', 10) || 15;
 
   var items = [];
   try {
@@ -387,7 +477,6 @@ export default async function (ctx) {
   }
 
   var themeKey = themeOf(items, today, env);
-  var props = backgroundProps(themeKey, transparent);
 
   var body;
   if (family === 'systemSmall') body = buildSmall(items, title, today, nowMs);
@@ -396,12 +485,12 @@ export default async function (ctx) {
   else body = buildMedium(items, title, today, nowMs);
 
   var out = { type: 'widget' };
-  if (props.bg) out.backgroundGradient = props.bg;
+  if (!transparent) out.backgroundGradient = backgroundGradient(themeKey);
   for (var k in body) if (k !== 'type' && k !== 'backgroundGradient') out[k] = body[k];
 
   // 透明模式：不给背景，只用一圈极淡描边勾出边界（stack 级边框，文档支持）
   if (transparent && family.indexOf('system') === 0) {
-    var padding = out.padding || 12;
+    var padding = out.padding || 11;
     delete out.padding;
     out.children = [{
       type: 'stack',
