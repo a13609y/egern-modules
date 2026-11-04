@@ -12,6 +12,7 @@ widgets/            小组件类模块（generic 脚本 + widgets 声明）
 ├── ...
 rules/              规则 / URL 重写 / MITM / http_response 类模块
 ├── coolapk/        酷安去广告（自动跟随上游 zirawell/R-Store）
+├── pinterest/      Pinterest 去广告（信息流 / 搜索 / 相关推荐推广 Pin）
 scripts/            独立脚本（抓包、签到、通知等）
 docs/               说明与踩坑记录
 .github/workflows/  上游同步（每天拉一次上游，有变化才提交）
@@ -25,6 +26,7 @@ docs/               说明与踩坑记录
 | --- | --- | --- |
 | [全国实时油价](widgets/oil-price/README.md) | 92/95/98/柴油油价小组件，支持调价趋势，小/中/大号自适应 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/oil-price/oil-price.yaml` |
 | [酷安去广告](rules/coolapk/README.md) | 去酷安开屏 / 首页信息流 / 评论 / 商品推广广告，规则与脚本自动跟随上游 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/coolapk/coolapk.yaml` |
+| [Pinterest 去广告](rules/pinterest/README.md) | 去 Pinterest 信息流、搜索、相关推荐里的推广 Pin，拦广告与点击追踪域名 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/pinterest/pinterest.yaml` |
 
 ## 安装方式
 
