@@ -10,9 +10,11 @@ Egern 模块 / 脚本合集。每个模块自带原始 JS、模块清单（YAML�
 widgets/            小组件类模块（generic 脚本 + widgets 声明）
 ├── oil-price/      全国实时油价
 ├── ...
-rules/              规则 / URL 重写 / Map Local 类模块
+rules/              规则 / URL 重写 / MITM / http_response 类模块
+├── coolapk/        酷安去广告（自动跟随上游 zirawell/R-Store）
 scripts/            独立脚本（抓包、签到、通知等）
 docs/               说明与踩坑记录
+.github/workflows/  上游同步（每天拉一次上游，有变化才提交）
 ```
 
 命名约定：目录用 `kebab-case`，每个模块目录内文件名与目录同名，附一份 `README.md`。
@@ -22,6 +24,7 @@ docs/               说明与踩坑记录
 | 模块 | 说明 | 订阅地址 |
 | --- | --- | --- |
 | [全国实时油价](widgets/oil-price/README.md) | 92/95/98/柴油油价小组件，支持调价趋势，小/中/大号自适应 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/oil-price/oil-price.yaml` |
+| [酷安去广告](rules/coolapk/README.md) | 去酷安开屏 / 首页信息流 / 评论 / 商品推广广告，规则与脚本自动跟随上游 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/coolapk/coolapk.yaml` |
 
 ## 安装方式
 
@@ -35,3 +38,5 @@ docs/               说明与踩坑记录
 - 模块地址固定指向 `main` 分支，更新即生效，Egern 默认 24 小时检查一次模块更新。
 - 本仓库模块默认不写路由规则（`rules` / `dns` 置空），避免影响你的分流策略；需要的直连规则在各自 README 里单独说明。
 - 数据来自公开网页或公开接口，站点改版可能导致失效，脚本内均有缓存与错误兜底。
+- 需要 MITM 的模块（如酷安去广告）会显式声明 `mitm.hostnames`，并在各自 README 里注明。
+- 依赖第三方上游的模块由 GitHub Actions 定时同步，转换脚本与测试都在模块目录内，可自行复跑。
