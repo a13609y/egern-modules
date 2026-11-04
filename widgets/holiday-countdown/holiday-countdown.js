@@ -327,9 +327,9 @@ function canvasOf(ctx, family) {
 }
 
 var FAMILY_STYLE = {
-  systemSmall: { pad: 9, cols: 2, name: 9, day: 11, num: 28, unit: 10, title: 11, heroName: 11, gapRow: 4, gapGrid: 4 },
-  systemMedium: { pad: 9, cols: 3, name: 9, day: 10, num: 26, unit: 10, title: 11, heroName: 17, gapRow: 4, gapGrid: 5 },
-  systemLarge: { pad: 13, cols: 3, name: 11, day: 14, num: 42, unit: 14, title: 13, heroName: 21, gapRow: 6, gapGrid: 10 },
+  systemSmall: { pad: 9, cols: 2, name: 9, day: 10, num: 28, unit: 10, title: 11, heroName: 12, gapRow: 3, gapTop: 1, gapMid: 3 },
+  systemMedium: { pad: 9, cols: 3, name: 9, day: 10, num: 26, unit: 10, title: 11, heroName: 19, gapRow: 4, gapTop: 1, gapMid: 6 },
+  systemLarge: { pad: 13, cols: 3, name: 11, day: 14, num: 42, unit: 14, title: 13, heroName: 24, gapRow: 6, gapTop: 3, gapMid: 9 },
 };
 
 function familyStyle(family) {
@@ -343,13 +343,13 @@ function estimateLayout(w, h, st, maxItems) {
   var innerH = h - st.pad * 2;
   var headerH = st.title * LINE + 4;
   var heroH = st.num * LINE;
-  var avail = innerH - headerH - heroH - st.gapGrid - SAFETY;
+  var avail = innerH - headerH - heroH - (st.gapTop || 0) - (st.gapMid || 0) - SAFETY;
   var cellH = st.name * LINE + st.day * LINE;
   var perRow = cellH + st.gapRow;
   var rows = avail <= cellH ? 0 : Math.floor((avail + st.gapRow) / perRow);
   rows = Math.max(0, rows);
   var count = Math.min(rows * st.cols, maxItems || rows * st.cols);
-  var usedH = headerH + heroH + st.gapGrid + rows * cellH + Math.max(0, rows - 1) * st.gapRow;
+  var usedH = headerH + heroH + (st.gapTop || 0) + (st.gapMid || 0) + rows * cellH + Math.max(0, rows - 1) * st.gapRow;
   return { rows: rows, cols: st.cols, count: count, cellH: cellH, usedH: usedH, innerH: innerH, fits: usedH <= innerH };
 }
 
@@ -460,7 +460,7 @@ function buildGrid(ctx, family, items, title, today, nowMs, maxItems) {
         mkSpacer(),
         mkText(today.m + '/' + today.d, st.title * 0.8, 'medium', C.muted, { maxLines: 1 }),
       ], 4));
-      children.push(mkSpacer(2));
+      children.push(mkSpacer(st.gapTop));
       children.push(mkRow([
         { type: 'spacer', flex: 1 },
         mkText(next.days === 0 ? '今天' : String(next.days), next.days === 0 ? Math.round(st.num * 0.85) : st.num, 'heavy',
@@ -468,11 +468,12 @@ function buildGrid(ctx, family, items, title, today, nowMs, maxItems) {
         next.days === 0 ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
         { type: 'spacer', flex: 1 },
       ].filter(Boolean), 3, { alignItems: 'end' }));
-      children.push(mkSpacer(st.gapGrid));
+      children.push(mkSpacer(st.gapMid));
     } else {
       children.push(headerRow(title, today, st));
-      children.push(mkSpacer(st.gapGrid));
+      children.push(mkSpacer(st.gapTop));
       children.push(bigNumber(next, st, st.heroName));
+      children.push(mkSpacer(st.gapMid));
     }
 
     for (var i = 0; i < rest.length; i += st.cols) {
