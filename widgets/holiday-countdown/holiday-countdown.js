@@ -341,23 +341,21 @@ function cell(it, nameSize, daySize) {
 
 function buildSmall(items, title, today, nowMs) {
   var next = items[0];
-  var rest = items.slice(1, 4);
-  var children = [headerRow(title, today)];
+  var rest = items.slice(1, 5);
+  var children = [];
 
   if (!next) {
     children.push(mkSpacer(6), mkText('没有数据', 11, 'medium', C.muted));
   } else {
-    children.push(mkSpacer(2));
-    children.push(mkText(next.name, 12, 'semibold', next.days === 0 ? C.red : C.sub, { maxLines: 1 }));
-    children.push(next.days === 0
-      ? mkText('今天', 28, 'heavy', C.red, { maxLines: 1, minScale: 0.6 })
-      : mkRow([
-          mkText(String(next.days), 32, 'heavy', catColor(next.cat, false), { maxLines: 1, minScale: 0.5 }),
-          mkText('天', 12, 'medium', C.sub),
-        ], 2));
-    if (rest.length) {
-      children.push(mkSpacer(2));
-      children.push(mkText(rest.map(function (it) { return it.name + ' ' + daysLabel(it.days); }).join(' · '), 8, 'medium', C.muted, { maxLines: 1, minScale: 0.7 }));
+    children.push(daysBig(next, 40, 12));
+    children.push(mkSpacer(4));
+    children.push(pill(next, true));
+    children.push({ type: 'spacer', flex: 1 });
+    for (var i = 0; i < rest.length; i += 2) {
+      var pair = rest.slice(i, i + 2).map(function (it) { return cell(it, 10, 12); });
+      while (pair.length < 2) pair.push({ type: 'spacer', flex: 1 });
+      children.push(mkRow(pair, 8));
+      if (i + 2 < rest.length) children.push(mkSpacer(5));
     }
   }
 
@@ -372,26 +370,20 @@ function buildSmall(items, title, today, nowMs) {
 
 function buildMedium(items, title, today, nowMs) {
   var next = items[0];
-  var rest = items.slice(1, 7); // 6 个，两行三列
-  var children = [headerRow(title, today)];
+  var rest = items.slice(1, 7);
+  var children = [headerRow(title, today), mkSpacer(4)];
 
   if (!next) {
-    children.push(mkSpacer(6), mkText('没有可显示的节日', 11, 'medium', C.muted));
+    children.push(mkText('没有可显示的节日', 11, 'medium', C.muted));
   } else {
-    children.push(mkSpacer(2));
     children.push(mkRow([
       mkCol([
-        mkText(next.name, 15, 'heavy', C.main, { maxLines: 1 }),
-        mkText(next.md, 9, 'medium', C.muted, { maxLines: 1 }),
+        mkText(next.name, 13, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
+        daysBig(next, 36, 12),
       ], 0),
       mkSpacer(),
-      next.days === 0
-        ? mkText('今天', 20, 'heavy', C.red, { maxLines: 1 })
-        : mkRow([
-            mkText(String(next.days), 26, 'heavy', catColor(next.cat, false), { maxLines: 1, minScale: 0.6 }),
-            mkText('天', 10, 'medium', C.sub),
-          ], 2),
-    ], 4));
+      pill(next, true),
+    ], 6, { alignItems: 'end' }));
   }
 
   if (rest.length) {
@@ -414,20 +406,37 @@ function buildMedium(items, title, today, nowMs) {
 }
 
 function buildLarge(items, title, today, nowMs, maxItems) {
-  var limit = Math.max(3, Math.min(items.length, maxItems || 15));
-  var show = items.slice(0, limit);
+  var next = items[0];
+  var limit = Math.max(3, Math.min(items.length - 1, maxItems || 12));
+  var rest = items.slice(1, 1 + limit);
   var children = [headerRow(title, today), mkSpacer(6)];
 
+  if (!next) {
+    children.push(mkText('没有可显示的节日', 12, 'medium', C.muted));
+    return { type: 'widget', padding: 15, children: children, refreshAfter: refreshAt(today, nowMs) };
+  }
+
+  children.push(mkRow([
+    mkCol([
+      mkText(next.name, 17, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
+      daysBig(next, 54, 16),
+    ], 0),
+    mkSpacer(),
+    pill(next),
+  ], 6, { alignItems: 'end' }));
+  children.push(mkSpacer(10));
+
   var rows = [];
-  for (var i = 0; i < show.length; i += 3) {
-    var chunk = show.slice(i, i + 3).map(function (it) { return cell(it, 11, 15); });
+  for (var i = 0; i < rest.length; i += 3) {
+    var chunk = rest.slice(i, i + 3).map(function (it) { return cell(it, 12, 16); });
     while (chunk.length < 3) chunk.push({ type: 'spacer', flex: 1 });
     rows.push(mkRow(chunk, 10, { flex: 1 }));
   }
-  if (!rows.length) rows.push(mkText('没有可显示的节日', 11, 'medium', C.muted));
+  if (!rows.length) rows.push(mkText('没有更多节日', 11, 'medium', C.muted));
+
   return {
     type: 'widget',
-    padding: 13,
+    padding: 15,
     children: children.concat(rows),
     refreshAfter: refreshAt(today, nowMs),
   };
@@ -460,15 +469,10 @@ function buildAccessory(items, family, title) {
 }
 
 
-// ── 参考图式排版（hero）────────────────────────────────────
-// 大标题 + 超大天数 + 节日胶囊 + 底部七格假期条
-
-var HOLIDAY_ORDER = ['元旦', '春节', '清明', '劳动节', '端午', '中秋', '国庆'];
+// ── 胶囊（参考图的那个小标签）──────────────────────────────
 var DISPLAY_NAME = { '元旦': '元旦', '春节': '春节', '清明': '清明节', '劳动节': '劳动节', '端午': '端午节', '中秋': '中秋节', '国庆': '国庆节' };
-
 var PILL_BG = { light: 'rgba(0,0,0,0.055)', dark: 'rgba(255,255,255,0.12)' };
-var PANEL_BG = { light: 'rgba(0,0,0,0.045)', dark: 'rgba(255,255,255,0.07)' };
-var DIVIDER = { light: 'rgba(0,0,0,0.09)', dark: 'rgba(255,255,255,0.14)' };
+var PANEL_BG = { light: 'rgba(0,0,0,0.04)', dark: 'rgba(255,255,255,0.06)' };
 
 function mdToCn(md) {
   var p = String(md || '').split('/');
@@ -476,122 +480,50 @@ function mdToCn(md) {
   return parseInt(p[0], 10) + '月' + parseInt(p[1], 10) + '日';
 }
 
-function pickHolidays(items) {
-  var map = {};
-  items.forEach(function (it) { if (!map[it.name]) map[it.name] = it; });
-  var out = [];
-  HOLIDAY_ORDER.forEach(function (n) { if (map[n]) out.push(map[n]); });
-  return out;
-}
-
-function daysBig(it, numSize, unitSize) {
-  if (it.days === 0) return mkText('今天', numSize * 0.92, 'heavy', C.red, { maxLines: 1, minScale: 0.6 });
-  return mkRow([
-    mkText(String(it.days), numSize, 'heavy', C.main, { maxLines: 1, minScale: 0.5 }),
-    mkText('天', unitSize, 'medium', C.sub, { maxLines: 1 }),
-  ], 4, { alignItems: 'end' });
-}
-
 function pill(it, compact) {
   return mkRow([
-    mkIcon('paperplane.fill', C.sub, compact ? 9 : 11),
-    mkText((DISPLAY_NAME[it.name] || it.name) + ' · ' + mdToCn(it.md), compact ? 11 : 12, 'semibold', C.main, { maxLines: 1, minScale: 0.75 }),
-  ], 5, {
-    padding: compact ? [4, 9] : [5, 11],
+    mkIcon('paperplane.fill', C.sub, compact ? 8 : 10),
+    mkText((DISPLAY_NAME[it.name] || it.name) + ' · ' + mdToCn(it.md), compact ? 10 : 11, 'semibold', C.main, { maxLines: 1, minScale: 0.7 }),
+  ], 4, {
+    padding: compact ? [3, 8] : [4, 9],
     backgroundColor: PILL_BG,
-    borderRadius: 13,
+    borderRadius: 11,
     flex: 0,
   });
 }
 
-function stripCell(it, nameSize, daySize) {
-  return mkCol([
-    mkText(it.name, nameSize || 10, 'medium', C.sub, { maxLines: 1, minScale: 0.7, textAlign: 'center' }),
-    mkText(it.days + '天', daySize || 13, 'bold', C.main, { maxLines: 1, minScale: 0.6, textAlign: 'center' }),
-  ], 1, { flex: 1, alignItems: 'center' });
+function daysBig(it, numSize, unitSize) {
+  if (it.days === 0) return mkText('今天', numSize * 0.86, 'heavy', C.red, { maxLines: 1, minScale: 0.6 });
+  return mkRow([
+    mkText(String(it.days), numSize, 'heavy', C.main, { maxLines: 1, minScale: 0.5 }),
+    mkText('天', unitSize, 'medium', C.sub, { maxLines: 1 }),
+  ], 3, { alignItems: 'end' });
 }
 
-function buildStrip(holidays, compact) {
-  var children = [];
-  var divH = compact ? 15 : 20;
-  holidays.forEach(function (it, i) {
-    if (i > 0) children.push({ type: 'stack', width: 1, height: divH, backgroundColor: DIVIDER, flex: 0 });
-    children.push(stripCell(it, compact ? 8 : 10, compact ? 11 : 13));
-  });
+// 底部「还没到的节假日」小面板
+function upcomingPanel(list, nameSize, daySize) {
+  var picked = list.slice(0, 4);
+  var rows = [];
+  for (var r = 0; r < picked.length; r += 2) {
+    var pair = picked.slice(r, r + 2).map(function (it) {
+      return mkCol([
+        mkText(it.name, nameSize, 'medium', C.sub, { maxLines: 1, minScale: 0.8 }),
+        mkText(it.days + '天', daySize, 'bold', it.days === 0 ? C.red : C.main, { maxLines: 1, minScale: 0.8 }),
+      ], 0, { flex: 1 });
+    });
+    if (pair.length === 1) pair.push({ type: 'spacer', flex: 1 });
+    rows.push(mkRow(pair, 6));
+  }
   return {
     type: 'stack',
-    direction: 'row',
-    alignItems: 'center',
-    gap: 0,
-    padding: compact ? [4, 2] : [7, 4],
+    direction: 'column',
+    alignItems: 'stretch',
+    gap: 4,
+    padding: [4, 6],
     backgroundColor: PANEL_BG,
-    borderRadius: 14,
-    children: children,
+    borderRadius: 10,
+    children: rows,
   };
-}
-
-function heroHeader(label, iconSize) {
-  return mkRow([
-    mkIcon('calendar', C.main, iconSize || 13),
-    mkText(label, 12, 'semibold', C.sub, { maxLines: 1, minScale: 0.8 }),
-  ], 6);
-}
-
-function buildHeroLarge(items, today, nowMs) {
-  var holidays = pickHolidays(items);
-  var next = holidays.slice().sort(function (a, b) { return a.days - b.days; })[0];
-  var children = [heroHeader('距离下一个假期还有', 14)];
-
-  if (next) {
-    children.push({ type: 'spacer', flex: 1 });
-    children.push(daysBig(next, 92, 18));
-    children.push(mkSpacer(10));
-    children.push(pill(next));
-    children.push({ type: 'spacer', flex: 1 });
-    if (holidays.length) children.push(buildStrip(holidays));
-  } else {
-    children.push(mkSpacer(8), mkText('没有可显示的假期', 12, 'medium', C.muted));
-  }
-
-  return { type: 'widget', padding: 15, children: children, refreshAfter: refreshAt(today, nowMs) };
-}
-
-function buildHeroMedium(items, today, nowMs) {
-  var holidays = pickHolidays(items);
-  var next = holidays.slice().sort(function (a, b) { return a.days - b.days; })[0];
-  var children = [heroHeader('距离下一个假期还有', 12)];
-
-  if (next) {
-    children.push(mkSpacer(1));
-    children.push(daysBig(next, 50, 14));
-    children.push(mkSpacer(4));
-    children.push(pill(next, true));
-    if (holidays.length) {
-      children.push({ type: 'spacer', flex: 1 });
-      children.push(buildStrip(holidays, true));
-    }
-  } else {
-    children.push(mkSpacer(6), mkText('没有可显示的假期', 11, 'medium', C.muted));
-  }
-
-  return { type: 'widget', padding: 13, children: children, refreshAfter: refreshAt(today, nowMs) };
-}
-
-function buildHeroSmall(items, today, nowMs) {
-  var holidays = pickHolidays(items);
-  var next = holidays.slice().sort(function (a, b) { return a.days - b.days; })[0];
-  var children = [mkRow([mkIcon('calendar', C.main, 11), mkSpacer()], 4)];
-
-  if (next) {
-    children.push(mkText(DISPLAY_NAME[next.name] || next.name, 12, 'semibold', C.sub, { maxLines: 1 }));
-    children.push(daysBig(next, 44, 13));
-    children.push(mkSpacer(2));
-    children.push(mkText(mdToCn(next.md), 10, 'medium', C.muted, { maxLines: 1 }));
-  } else {
-    children.push(mkSpacer(6), mkText('没有数据', 11, 'medium', C.muted));
-  }
-
-  return { type: 'widget', padding: 12, children: children, refreshAfter: refreshAt(today, nowMs) };
 }
 
 // ── 入口 ───────────────────────────────────────────────────
@@ -602,7 +534,7 @@ export default async function (ctx) {
   var today = beijingToday(nowMs);
   var title = String(env.TITLE || '节日倒数');
   var transparent = String(env.TRANSPARENT || 'false').toLowerCase() === 'true';
-  var maxItems = parseInt(env.GRID_ITEMS || '15', 10) || 15;
+  var maxItems = parseInt(env.GRID_ITEMS || '12', 10) || 12;
 
   var items = [];
   try {
@@ -613,19 +545,11 @@ export default async function (ctx) {
 
   var themeKey = themeOf(items, today, env);
 
-  var style = String(env.STYLE || 'hero').toLowerCase();
   var body;
-  if (family === 'accessoryRectangular' || family === 'accessoryCircular' || family === 'accessoryInline') {
-    body = buildAccessory(items, family, title);
-  } else if (style === 'grid') {
-    if (family === 'systemSmall') body = buildSmall(items, title, today, nowMs);
-    else if (family === 'systemLarge' || family === 'systemExtraLarge') body = buildLarge(items, title, today, nowMs, maxItems);
-    else body = buildMedium(items, title, today, nowMs);
-  } else {
-    if (family === 'systemSmall') body = buildHeroSmall(items, today, nowMs);
-    else if (family === 'systemLarge' || family === 'systemExtraLarge') body = buildHeroLarge(items, today, nowMs);
-    else body = buildHeroMedium(items, today, nowMs);
-  }
+  if (family === 'systemSmall') body = buildSmall(items, title, today, nowMs);
+  else if (family === 'systemLarge' || family === 'systemExtraLarge') body = buildLarge(items, title, today, nowMs, maxItems);
+  else if (family === 'accessoryRectangular' || family === 'accessoryCircular' || family === 'accessoryInline') body = buildAccessory(items, family, title);
+  else body = buildMedium(items, title, today, nowMs);
 
   var out = { type: 'widget' };
   if (!transparent) out.backgroundGradient = backgroundGradient(themeKey);
