@@ -1,0 +1,46 @@
+name: sync-coolapk
+
+on:
+  schedule:
+    - cron: "23 3 * * *" # 每天 03:23 UTC（北京时间 11:23）跟一次上游
+  workflow_dispatch:
+  push:
+    paths:
+      - "rules/coolapk/**"
+      - ".github/workflows/sync-coolapk.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 生成模块（拉上游 → 转换）
+        run: python3 rules/coolapk/sync.py
+
+      - name: 静态校验（JS 语法 + 行为测试 + YAML）
+        run: |
+          set -e
+          node --version
+          python3 -c "import yaml,sys; d=yaml.safe_load(open('rules/coolapk/coolapk.yaml')); assert d.get('scriptings'), 'scriptings 为空'; print('yaml ok:', len(d['scriptings']), 'scripts,', len(d.get('mitm',{}).get('hostnames',[])), 'hosts')"
+          cd rules/coolapk
+          node --check coolapk.js
+          cp coolapk.js coolapk.mjs
+          node test.mjs
+          rm -f coolapk.mjs
+
+      - name: 提交变化
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain rules/coolapk)" ]; then
+            git add rules/coolapk
+            git commit -m "chore(coolapk): 跟随上游更新 $(date -u +%F)"
+            git push
+            echo "::notice::已同步上游更新"
+          else
+            echo "上游无变化"
+          fi
