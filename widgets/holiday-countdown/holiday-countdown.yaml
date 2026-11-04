@@ -1,0 +1,93 @@
+name: 节日倒数
+description: 距离下一个假期还有多少天 · 超大天数 + 节日胶囊 + 底部七格假期条 · 另有九宫格排版可切换 · 数据内置到 2050 年，不联网
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules/tree/main/widgets/holiday-countdown
+icon: calendar
+
+# ── 模块参数默认值（用户可在「模块设置」里覆盖）────────────────
+compat_arguments:
+  TITLE: 节日倒数
+  TRANSPARENT: "false"
+  THEME: auto
+  GRID_ITEMS: "0"
+  SHOW_TERMS: "true"
+  SHOW_WESTERN: "true"
+  ANNIVERSARIES: ""
+
+compat_arguments_desc: |
+  所有节日（含二十四节气与现代节日）按「还有几天」排成网格：大号 15 条、中号 7 条、小号 1 条 + 底部两条。
+  大号和中号右上角有胶囊，显示最近那个节日的名字和日期。
+  背景自动切换：节日当天暖橙、周末冷蓝、工作日浅灰，深浅色各一套。
+  节气绿色、现代节日金色、法定与传统节日主色。
+
+env_schema:
+  TITLE:
+    name: 标题
+    description: 小组件左上角显示的标题
+    default_value: 节日倒数
+  TRANSPARENT:
+    name: 透明模式
+    description: 不画背景渐变，只保留极淡描边，露出壁纸
+    default_value: "false"
+    options:
+      - "false"
+      - "true"
+  THEME:
+    name: 背景主题
+    description: auto = 节日当天暖橙、周末冷蓝、其余浅灰；也可以强制固定一种
+    default_value: auto
+    options:
+      - auto
+      - fest
+      - weekend
+      - workday
+  GRID_ITEMS:
+    name: 最多显示条数
+    description: 0 = 按组件实际高度自动计算（推荐）；填数字则强制上限，填太大会被自动裁到放得下的数量
+    default_value: "0"
+  SHOW_TERMS:
+    name: 显示二十四节气
+    description: 小寒、立春、惊蛰…共 24 个，绿色显示
+    default_value: "true"
+    options:
+      - "true"
+      - "false"
+  SHOW_WESTERN:
+    name: 显示现代节日
+    description: 情人节、妇女节、愚人节、表白日、儿童节、教师节、万圣夜、光棍节、双十二、平安夜、圣诞、跨年夜、母亲节、父亲节、感恩节，金色显示
+    default_value: "true"
+    options:
+      - "true"
+      - "false"
+  ANNIVERSARIES:
+    name: 自定义纪念日
+    description: 用逗号分隔，格式「名字=05-20」每年循环，或「名字=2026-02-01」只算一次
+    default_value: ""
+
+dns: {}
+
+scriptings:
+  - generic:
+      name: holiday-countdown
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/holiday-countdown/holiday-countdown.js
+      timeout: 15
+      env:
+        TITLE: "{{{TITLE}}}"
+        TRANSPARENT: "{{{TRANSPARENT}}}"
+        THEME: "{{{THEME}}}"
+        GRID_ITEMS: "{{{GRID_ITEMS}}}"
+        SHOW_TERMS: "{{{SHOW_TERMS}}}"
+        SHOW_WESTERN: "{{{SHOW_WESTERN}}}"
+        ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
+
+widgets:
+  - name: 节日倒数
+    script_name: holiday-countdown
+    env:
+      TITLE: "{{{TITLE}}}"
+      TRANSPARENT: "{{{TRANSPARENT}}}"
+      THEME: "{{{THEME}}}"
+      GRID_ITEMS: "{{{GRID_ITEMS}}}"
+      SHOW_TERMS: "{{{SHOW_TERMS}}}"
+      SHOW_WESTERN: "{{{SHOW_WESTERN}}}"
+      ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
