@@ -1,5 +1,5 @@
 name: 节日倒数
-description: 距离下一个节日还有多少天 · 春节/元宵/清明/端午/七夕/中秋/重阳/国庆/元旦/除夕 + 自定义纪念日 · 农历数据内置到 2050 年，不联网 · 小/中/大号与锁屏组件
+description: 距离下一个节日还有多少天 · 法定与传统节日 + 二十四节气 + 现代节日（情人节/光棍节/圣诞…）+ 自定义纪念日 · 数据内置到 2050 年，不联网 · 小/中/大号与锁屏组件
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules/tree/main/widgets/holiday-countdown
 icon: calendar
@@ -9,13 +9,16 @@ compat_arguments:
   TITLE: 节日倒数
   TRANSPARENT: "false"
   THEME: auto
-  GRID_ITEMS: "8"
+  GRID_ITEMS: "15"
+  SHOW_TERMS: "true"
+  SHOW_WESTERN: "true"
   ANNIVERSARIES: ""
 
 compat_arguments_desc: |
   节日按「还有几天」自动排序，最近的排最前，当天显示「今天」。
-  背景会自动切换：节假日用暖橙、周末用冷蓝、工作日用浅灰，深浅色各自一套。
-  开启透明模式后不画背景，只留一圈极淡描边，壁纸完整透出来。
+  大号最多 15 条（3 列 × 5 行），中号 7 条，小号 1 条 + 下三条。
+  背景自动切换：节假日暖橙、周末冷蓝、工作日浅灰，深浅色各一套。
+  节气用绿色、现代节日用金色，法定与传统节日用主色，一眼能分开。
 
 env_schema:
   TITLE:
@@ -40,8 +43,22 @@ env_schema:
       - workday
   GRID_ITEMS:
     name: 大号显示条数
-    description: 大号组件最多显示几个节日（2-12），中号固定显示 4 个、小号 1 个
-    default_value: "8"
+    description: 大号组件最多显示几条（3-24，按 3 列排布）；中号固定 7 条
+    default_value: "15"
+  SHOW_TERMS:
+    name: 显示二十四节气
+    description: 小寒、立春、惊蛰…共 24 个，绿色显示
+    default_value: "true"
+    options:
+      - "true"
+      - "false"
+  SHOW_WESTERN:
+    name: 显示现代节日
+    description: 情人节、妇女节、愚人节、表白日、儿童节、教师节、万圣夜、光棍节、双十二、平安夜、圣诞、跨年夜、母亲节、父亲节、感恩节，金色显示
+    default_value: "true"
+    options:
+      - "true"
+      - "false"
   ANNIVERSARIES:
     name: 自定义纪念日
     description: 用逗号分隔，格式「名字=05-20」每年循环，或「名字=2026-02-01」只算一次
@@ -59,6 +76,8 @@ scriptings:
         TRANSPARENT: "{{{TRANSPARENT}}}"
         THEME: "{{{THEME}}}"
         GRID_ITEMS: "{{{GRID_ITEMS}}}"
+        SHOW_TERMS: "{{{SHOW_TERMS}}}"
+        SHOW_WESTERN: "{{{SHOW_WESTERN}}}"
         ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
 
 widgets:
@@ -69,4 +88,6 @@ widgets:
       TRANSPARENT: "{{{TRANSPARENT}}}"
       THEME: "{{{THEME}}}"
       GRID_ITEMS: "{{{GRID_ITEMS}}}"
+      SHOW_TERMS: "{{{SHOW_TERMS}}}"
+      SHOW_WESTERN: "{{{SHOW_WESTERN}}}"
       ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
