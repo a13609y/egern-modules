@@ -288,13 +288,6 @@ function daysLabel(d) {
   return String(d);
 }
 
-function catColor(cat, isToday) {
-  if (isToday) return C.red;
-  if (cat === 'term') return C.green;
-  if (cat === 'west') return C.gold;
-  return C.main;
-}
-
 // ── 背景 ───────────────────────────────────────────────────
 function backgroundGradient(themeKey) {
   var colors = themeKey === 'fest' ? C.bgFest : themeKey === 'weekend' ? C.bgWeekend : C.bgWorkday;
@@ -333,7 +326,7 @@ function cell(it, nameSize, daySize) {
   return mkCol([
     mkText(it.name, nameSize, 'medium', isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.7 }),
     mkRow([
-      mkText(daysLabel(it.days), daySize, 'heavy', catColor(it.cat, isToday), { maxLines: 1, minScale: 0.6 }),
+      mkText(daysLabel(it.days), daySize, 'heavy', isToday ? C.red : C.main, { maxLines: 1, minScale: 0.6 }),
       isToday ? null : mkText('天', Math.max(8, daySize - 6), 'medium', C.muted, { maxLines: 1 }),
     ].filter(Boolean), 1),
   ], 0, { flex: 1 });
@@ -371,8 +364,8 @@ function buildSmall(items, title, today, nowMs) {
 
 function buildMedium(items, title, today, nowMs) {
   var next = items[0];
-  var rest = items.slice(1, 5);
-  var children = [headerRow(title, today), mkSpacer(4)];
+  var rest = items.slice(1, 7);
+  var children = [headerRow(title, today), mkSpacer(3)];
 
   if (!next) {
     children.push(mkText('没有可显示的节日', 11, 'medium', C.muted));
@@ -382,18 +375,18 @@ function buildMedium(items, title, today, nowMs) {
   children.push(mkRow([
     mkCol([
       mkText(next.name, 13, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
-      daysBig(next, 30, 11),
+      daysBig(next, 26, 10),
     ], 0),
     mkSpacer(),
     pill(next, true),
   ], 6, { alignItems: 'end' }));
-  children.push(mkSpacer(8));
+  children.push(mkSpacer(6));
 
-  for (var i = 0; i < rest.length; i += 2) {
-    var pair = rest.slice(i, i + 2).map(function (it) { return cell(it, 11, 14); });
-    while (pair.length < 2) pair.push({ type: 'spacer', flex: 1 });
-    children.push(mkRow(pair, 12));
-    if (i + 2 < rest.length) children.push(mkSpacer(6));
+  for (var i = 0; i < rest.length; i += 3) {
+    var triple = rest.slice(i, i + 3).map(function (it) { return cell(it, 9, 11); });
+    while (triple.length < 3) triple.push({ type: 'spacer', flex: 1 });
+    children.push(mkRow(triple, 8));
+    if (i + 3 < rest.length) children.push(mkSpacer(5));
   }
 
   return { type: 'widget', padding: 12, children: children, refreshAfter: refreshAt(today, nowMs) };
@@ -421,7 +414,7 @@ function buildLarge(items, title, today, nowMs, maxItems) {
   children.push(mkSpacer(10));
 
   for (var i = 0; i < rest.length; i += 3) {
-    var triple = rest.slice(i, i + 3).map(function (it) { return cell(it, 10, 14); });
+    var triple = rest.slice(i, i + 3).map(function (it) { return cell(it, 10, 13); });
     while (triple.length < 3) triple.push({ type: 'spacer', flex: 1 });
     children.push(mkRow(triple, 10, { flex: 1 }));
   }
