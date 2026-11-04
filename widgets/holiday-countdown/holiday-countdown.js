@@ -347,7 +347,6 @@ function buildSmall(items, title, today, nowMs) {
   if (!next) {
     children.push(mkSpacer(6), mkText('没有数据', 11, 'medium', C.muted));
   } else {
-    // 头部：图标 + 节日名 + 日期（对应中号的标题行）
     children.push(mkRow([
       mkIcon('calendar', C.muted, 10),
       mkText(next.name, 12, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1, minScale: 0.8 }),
@@ -355,99 +354,79 @@ function buildSmall(items, title, today, nowMs) {
       mkText(today.m + '/' + today.d, 9, 'medium', C.muted, { maxLines: 1 }),
     ], 5));
     children.push(mkSpacer(3));
-    children.push(daysBig(next, 42, 12));
+    children.push(daysBig(next, 34, 11));
     children.push(mkSpacer(4));
     children.push(pillDate(next));
     children.push({ type: 'spacer', flex: 1 });
     for (var i = 0; i < rest.length; i += 2) {
-      var pair = rest.slice(i, i + 2).map(function (it) { return cell(it, 10, 12); });
+      var pair = rest.slice(i, i + 2).map(function (it) { return cell(it, 9, 11); });
       while (pair.length < 2) pair.push({ type: 'spacer', flex: 1 });
       children.push(mkRow(pair, 8));
       if (i + 2 < rest.length) children.push(mkSpacer(4));
     }
   }
 
-  return {
-    type: 'widget',
-    padding: 11,
-    gap: 0,
-    children: children,
-    refreshAfter: refreshAt(today, nowMs),
-  };
+  return { type: 'widget', padding: 11, gap: 0, children: children, refreshAfter: refreshAt(today, nowMs) };
 }
 
 function buildMedium(items, title, today, nowMs) {
   var next = items[0];
-  var rest = items.slice(1, 7);
+  var rest = items.slice(1, 5);
   var children = [headerRow(title, today), mkSpacer(4)];
 
   if (!next) {
     children.push(mkText('没有可显示的节日', 11, 'medium', C.muted));
-  } else {
-    children.push(mkRow([
-      mkCol([
-        mkText(next.name, 13, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
-        daysBig(next, 36, 12),
-      ], 0),
-      mkSpacer(),
-      pill(next, true),
-    ], 6, { alignItems: 'end' }));
+    return { type: 'widget', padding: 12, children: children, refreshAfter: refreshAt(today, nowMs) };
   }
 
-  if (rest.length) {
-    children.push(mkSpacer(6));
-    var rows = [];
-    for (var i = 0; i < rest.length; i += 3) {
-      var chunk = rest.slice(i, i + 3).map(function (it) { return cell(it, 10, 13); });
-      while (chunk.length < 3) chunk.push({ type: 'spacer', flex: 1 });
-      rows.push(mkRow(chunk, 8, { flex: 1 }));
-    }
-    rows.forEach(function (r) { children.push(r); });
+  children.push(mkRow([
+    mkCol([
+      mkText(next.name, 13, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
+      daysBig(next, 30, 11),
+    ], 0),
+    mkSpacer(),
+    pill(next, true),
+  ], 6, { alignItems: 'end' }));
+  children.push(mkSpacer(8));
+
+  for (var i = 0; i < rest.length; i += 2) {
+    var pair = rest.slice(i, i + 2).map(function (it) { return cell(it, 11, 14); });
+    while (pair.length < 2) pair.push({ type: 'spacer', flex: 1 });
+    children.push(mkRow(pair, 12));
+    if (i + 2 < rest.length) children.push(mkSpacer(6));
   }
 
-  return {
-    type: 'widget',
-    padding: 11,
-    children: children,
-    refreshAfter: refreshAt(today, nowMs),
-  };
+  return { type: 'widget', padding: 12, children: children, refreshAfter: refreshAt(today, nowMs) };
 }
 
 function buildLarge(items, title, today, nowMs, maxItems) {
   var next = items[0];
-  var limit = Math.max(3, Math.min(items.length - 1, maxItems || 12));
+  var limit = Math.max(3, Math.min(items.length - 1, maxItems || 15));
   var rest = items.slice(1, 1 + limit);
   var children = [headerRow(title, today), mkSpacer(6)];
 
   if (!next) {
     children.push(mkText('没有可显示的节日', 12, 'medium', C.muted));
-    return { type: 'widget', padding: 15, children: children, refreshAfter: refreshAt(today, nowMs) };
+    return { type: 'widget', padding: 14, children: children, refreshAfter: refreshAt(today, nowMs) };
   }
 
   children.push(mkRow([
     mkCol([
-      mkText(next.name, 17, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
-      daysBig(next, 54, 16),
+      mkText(next.name, 16, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
+      daysBig(next, 42, 14),
     ], 0),
     mkSpacer(),
     pill(next),
   ], 6, { alignItems: 'end' }));
   children.push(mkSpacer(10));
 
-  var rows = [];
   for (var i = 0; i < rest.length; i += 3) {
-    var chunk = rest.slice(i, i + 3).map(function (it) { return cell(it, 12, 16); });
-    while (chunk.length < 3) chunk.push({ type: 'spacer', flex: 1 });
-    rows.push(mkRow(chunk, 10, { flex: 1 }));
+    var triple = rest.slice(i, i + 3).map(function (it) { return cell(it, 10, 14); });
+    while (triple.length < 3) triple.push({ type: 'spacer', flex: 1 });
+    children.push(mkRow(triple, 10, { flex: 1 }));
   }
-  if (!rows.length) rows.push(mkText('没有更多节日', 11, 'medium', C.muted));
 
-  return {
-    type: 'widget',
-    padding: 15,
-    children: children.concat(rows),
-    refreshAfter: refreshAt(today, nowMs),
-  };
+  return { type: 'widget', padding: 14, children: children, refreshAfter: refreshAt(today, nowMs) };
 }
 
 function buildAccessory(items, family, title) {
@@ -549,7 +528,7 @@ export default async function (ctx) {
   var today = beijingToday(nowMs);
   var title = String(env.TITLE || '节日倒数');
   var transparent = String(env.TRANSPARENT || 'false').toLowerCase() === 'true';
-  var maxItems = parseInt(env.GRID_ITEMS || '12', 10) || 12;
+  var maxItems = parseInt(env.GRID_ITEMS || '15', 10) || 15;
 
   var items = [];
   try {
