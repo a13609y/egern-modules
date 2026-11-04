@@ -347,15 +347,23 @@ function buildSmall(items, title, today, nowMs) {
   if (!next) {
     children.push(mkSpacer(6), mkText('没有数据', 11, 'medium', C.muted));
   } else {
-    children.push(daysBig(next, 40, 12));
+    // 头部：图标 + 节日名 + 日期（对应中号的标题行）
+    children.push(mkRow([
+      mkIcon('calendar', C.muted, 10),
+      mkText(next.name, 12, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1, minScale: 0.8 }),
+      mkSpacer(),
+      mkText(today.m + '/' + today.d, 9, 'medium', C.muted, { maxLines: 1 }),
+    ], 5));
+    children.push(mkSpacer(3));
+    children.push(daysBig(next, 42, 12));
     children.push(mkSpacer(4));
-    children.push(pill(next, true));
+    children.push(pillDate(next));
     children.push({ type: 'spacer', flex: 1 });
     for (var i = 0; i < rest.length; i += 2) {
       var pair = rest.slice(i, i + 2).map(function (it) { return cell(it, 10, 12); });
       while (pair.length < 2) pair.push({ type: 'spacer', flex: 1 });
       children.push(mkRow(pair, 8));
-      if (i + 2 < rest.length) children.push(mkSpacer(5));
+      if (i + 2 < rest.length) children.push(mkSpacer(4));
     }
   }
 
@@ -490,6 +498,13 @@ function pill(it, compact) {
     borderRadius: 11,
     flex: 0,
   });
+}
+
+function pillDate(it) {
+  return mkRow([
+    mkIcon('paperplane.fill', C.sub, 8),
+    mkText(mdToCn(it.md), 10, 'semibold', C.main, { maxLines: 1, minScale: 0.7 }),
+  ], 4, { padding: [3, 8], backgroundColor: PILL_BG, borderRadius: 11, flex: 0 });
 }
 
 function daysBig(it, numSize, unitSize) {
