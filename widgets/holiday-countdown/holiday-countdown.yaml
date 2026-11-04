@@ -6,7 +6,6 @@ icon: calendar
 
 # ── 模块参数默认值（用户可在「模块设置」里覆盖）────────────────
 compat_arguments:
-  STYLE: hero
   TITLE: 节日倒数
   TRANSPARENT: "false"
   THEME: auto
@@ -16,18 +15,12 @@ compat_arguments:
   ANNIVERSARIES: ""
 
 compat_arguments_desc: |
-  hero 排版（默认）：顶部「距离下一个假期还有」+ 超大天数 + 「国庆节 · 10月1日」胶囊 + 底部元旦/春节/清明/劳动节/端午/中秋/国庆七格条，中号也带七格条。
-  grid 排版：把一年里所有节日（含二十四节气与现代节日）按天数排成网格，大号 15 条、中号 7 条。
+  所有节日（含二十四节气与现代节日）按「还有几天」排成网格：大号 15 条、中号 7 条、小号 1 条 + 底部两条。
+  大号和中号右上角有胶囊，显示最近那个节日的名字和日期。
   背景自动切换：节日当天暖橙、周末冷蓝、工作日浅灰，深浅色各一套。
+  节气绿色、现代节日金色、法定与传统节日主色。
 
 env_schema:
-  STYLE:
-    name: 排版样式
-    description: hero = 大天数 + 七格假期条（参考图样式）；grid = 全部节日九宫格
-    default_value: hero
-    options:
-      - hero
-      - grid
   TITLE:
     name: 标题
     description: 小组件左上角显示的标题
@@ -79,7 +72,6 @@ scriptings:
       script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/holiday-countdown/holiday-countdown.js
       timeout: 15
       env:
-        STYLE: "{{{STYLE}}}"
         TITLE: "{{{TITLE}}}"
         TRANSPARENT: "{{{TRANSPARENT}}}"
         THEME: "{{{THEME}}}"
@@ -92,7 +84,6 @@ widgets:
   - name: 节日倒数
     script_name: holiday-countdown
     env:
-      STYLE: "{{{STYLE}}}"
       TITLE: "{{{TITLE}}}"
       TRANSPARENT: "{{{TRANSPARENT}}}"
       THEME: "{{{THEME}}}"
