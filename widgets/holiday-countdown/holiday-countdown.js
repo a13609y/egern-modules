@@ -326,7 +326,7 @@ function cell(it, nameSize, daySize) {
   return mkCol([
     mkText(it.name, nameSize, 'medium', isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.7 }),
     mkRow([
-      mkText(daysLabel(it.days), daySize, 'heavy', isToday ? C.red : C.main, { maxLines: 1, minScale: 0.6 }),
+      mkText(daysLabel(it.days), daySize, 'heavy', catColor(it.cat, isToday), { maxLines: 1, minScale: 0.6 }),
       isToday ? null : mkText('天', Math.max(8, daySize - 6), 'medium', C.muted, { maxLines: 1 }),
     ].filter(Boolean), 1),
   ], 0, { flex: 1 });
@@ -346,10 +346,8 @@ function buildSmall(items, title, today, nowMs) {
       mkSpacer(),
       mkText(today.m + '/' + today.d, 9, 'medium', C.muted, { maxLines: 1 }),
     ], 5));
-    children.push(mkSpacer(3));
-    children.push(daysBig(next, 34, 11));
     children.push(mkSpacer(4));
-    children.push(pillDate(next));
+    children.push(mkRow([daysBig(next, 36, 11), mkSpacer(), pillDate(next)], 6, { alignItems: 'end' }));
     children.push({ type: 'spacer', flex: 1 });
     for (var i = 0; i < rest.length; i += 2) {
       var pair = rest.slice(i, i + 2).map(function (it) { return cell(it, 9, 11); });
@@ -373,11 +371,10 @@ function buildMedium(items, title, today, nowMs) {
   }
 
   children.push(mkRow([
-    mkCol([
-      mkText(next.name, 13, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
-      daysBig(next, 26, 10),
-    ], 0),
-    mkSpacer(),
+    mkText(next.name, 14, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
+    mkSpacer(8),
+    daysBig(next, 36, 12),
+    mkSpacer(6),
     pill(next, true),
   ], 6, { alignItems: 'end' }));
   children.push(mkSpacer(6));
@@ -404,11 +401,10 @@ function buildLarge(items, title, today, nowMs, maxItems) {
   }
 
   children.push(mkRow([
-    mkCol([
-      mkText(next.name, 16, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
-      daysBig(next, 42, 14),
-    ], 0),
-    mkSpacer(),
+    mkText(next.name, 17, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1 }),
+    mkSpacer(10),
+    daysBig(next, 48, 15),
+    mkSpacer(8),
     pill(next),
   ], 6, { alignItems: 'end' }));
   children.push(mkSpacer(10));
@@ -479,10 +475,17 @@ function pillDate(it) {
   ], 4, { padding: [3, 8], backgroundColor: PILL_BG, borderRadius: 11, flex: 0 });
 }
 
+function catColor(cat, isToday) {
+  if (isToday) return C.red;
+  if (cat === 'term') return C.green;
+  if (cat === 'west') return C.gold;
+  return C.main;
+}
+
 function daysBig(it, numSize, unitSize) {
   if (it.days === 0) return mkText('今天', numSize * 0.86, 'heavy', C.red, { maxLines: 1, minScale: 0.6 });
   return mkRow([
-    mkText(String(it.days), numSize, 'heavy', C.main, { maxLines: 1, minScale: 0.5 }),
+    mkText(String(it.days), numSize, 'heavy', catColor(it.cat, false), { maxLines: 1, minScale: 0.5 }),
     mkText('天', unitSize, 'medium', C.sub, { maxLines: 1 }),
   ], 3, { alignItems: 'end' });
 }
