@@ -1,0 +1,43 @@
+name: 酷安 - COOLAPK
+description: 去除酷安开屏 / 首页信息流 / 评论 / 商品推广等广告（规则与脚本自动跟随上游 zirawell/R-Store）
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules/tree/main/rules/coolapk
+icon: https://raw.githubusercontent.com/zirawell/R-Store/main/Res/Icon/App/coolapk.png
+
+# ⚠️ 本文件由 rules/coolapk/sync.py 自动生成，请勿手动修改。
+# 上游模块 : https://raw.githubusercontent.com/zirawell/R-Store/main/Rule/Surge/Adblock/App/K/%E9%85%B7%E5%AE%89/coolapk.sgmodule
+# 上游脚本 : https://raw.githubusercontent.com/zirawell/R-Store/main/Res/Scripts/AntiAd/coolapk.js
+# 上游 hash : 6cc214c7df85
+# 生成时间 : 2026-11-04 02:35 UTC
+
+mitm:
+  hostnames:
+    - api.coolapk.com
+
+scriptings:
+  - http_response:
+      name: coolapk-1
+      match: '^https?://api\.coolapk\.com/v\d/feed/(detail|replyList)\?'
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/coolapk/coolapk.js
+      body_required: true
+      max_size: 8388608
+      timeout: 30
+      update_interval: 86400
+  - http_response:
+      name: coolapk-2
+      match: '^https?://api\.coolapk\.com/v\d/main/(?:dataList|indexV|init)'
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/coolapk/coolapk.js
+      body_required: true
+      max_size: 8388608
+      timeout: 30
+      update_interval: 86400
+  - http_response:
+      name: coolapk-3
+      match: '^https?://api\.coolapk\.com/v\d/page/dataList\?'
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/coolapk/coolapk.js
+      body_required: true
+      max_size: 8388608
+      timeout: 30
+      update_interval: 86400
+
+dns: {}
