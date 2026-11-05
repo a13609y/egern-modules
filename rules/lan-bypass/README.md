@@ -12,7 +12,7 @@
 https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/lan-bypass/lan-bypass.yaml
 ```
 
-当前条目：绕过 40 条、真实 IP 84 条、MITM 排除 12 条。
+当前条目：绕过 40 条（另有 1 条由开关控制的占位项）、真实 IP 84 条、MITM 排除 12 条。
 
 ---
 
@@ -25,7 +25,7 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/lan-bypass/la
 | `fe80::/10` | IPv6 链路本地，带接口作用域，跨接口必失败（NDP 因此断掉） |
 | `169.254.0.0/16` | IPv4 链路本地，无 DHCP 时的自动地址 |
 | `fc00::/7`、`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16` | 内网单播：NAS、路由器管理页、打印机、内网系统 |
-| `100.64.0.0/10` | **故意不放开**：若在 Egern 里用 Tailscale 代理访问 tailnet 主机，放开会让目的地址直接走物理链路，详见文末 |
+| `100.64.0.0/10` | 由模块开关控制，默认**不**绕过（兼容 Tailscale / ZeroTier），详见文末 |
 | `127.0.0.0/8`、`::1/128` | 环回 |
 
 组播、广播、链路本地**不产生「域名 + 端口」意义上的连接判定**，`rules` 里的 `ip_cidr → DIRECT` 兜不住，只能在这一层豁免。bypass 的语义是"不解析、不劫持 DNS、不做 Fake IP"，最接近"没开 VPN"；`DIRECT` 规则仍由 Egern 建连、走 Egern 的 DNS。
@@ -92,11 +92,29 @@ Fake IP 会把这些服务解析到一个假地址：联机匹配失败、CDN �
 
 Egern 把 Tailscale 当作一种**代理类型**（工具 → 代理 → 新增 → 类型 Tailscale），它是在隧道内部建一条 userspace WireGuard，把一个节点或出口节点当作上游。因此：
 
-- 模块**不会**拦截、也不会影响 Egern 自己连控制服务器 / DERP 的流量（那是 Egern 自身的出站连接，不经隧道捕获）。
-- 模块里刻意**没有**放 `100.64.0.0/10`：如果放进去，目标地址是 tailnet 主机的连接会直接走物理链路、根本不进规则，Tailscale 策略永远轮不到它。
-- 反过来，如果你要用 Tailscale 节点当**出口**（exit node，所有流量从它出去），目的地址都是公网 IP，放不放那条都不影响；但一旦你哪天想直连 tailnet 里的机器就会踩坑，所以保持不放开更稳。
+- 模块**不会**拦截 Egern 自己连控制服务器 / DERP 的流量（那是它自身的出站连接，不经隧道捕获）。
+- 模块里 `100.64.0.0/10` 那一行由开关控制，**默认不绕过**（`0.0.0.0/32` 是空占位，不匹配任何真实流量），tailnet 主机可以正常命中策略。
+- 如果你把 Tailscale 节点当**出口**（exit node，流量都从它出去），目的地址是公网 IP，这一行放不放都无所谓；但保持默认更稳，避免以后想直连 tailnet 机器时踩坑。
 
-想访问 tailnet 主机，在**主配置**里把这段指给 Tailscale 策略（策略名换成你自己的）：
+### 开关在哪
+
+模块设置页会多出「**兼容 Tailscale / ZeroTier**」一项，两个可选值：
+
+| 值 | 行为 |
+| --- | --- |
+| `0.0.0.0/32`（默认） | 不绕过 `100.64.0.0/10`，tailnet / ZeroTier 主机正常走 Egern 策略 |
+| `100.64.0.0/10` | 整段直连、不进隧道（不用组网、又想让运营商 CGNAT 地址完全脱管时选） |
+
+YAML 侧对应：
+
+```yaml
+compat_arguments:
+  TAILSCALE_CIDR: "0.0.0.0/32"
+```
+
+### 还要在主配置里补一条规则
+
+访问 tailnet 主机需要把该段指向 Tailscale 策略（策略名换成你自己的）：
 
 ```yaml
 rules:
@@ -108,4 +126,6 @@ rules:
       policy: Tailscale
 ```
 
-ZeroTier 同理（`fd00::/8` 里的网段按你实际分配填）。
+ZeroTier 同理（`fd00::/8` 里按你实际分配的网段填）。
+
+> 提示：`*.ts.net`（MagicDNS）已经放在 `real_ip_domains` 里，避免被 Fake IP 顶掉；若主配置开了 `hijack_dns: '*'`，MagicDNS 的 `100.100.100.100` 会被 Egern 接管，解析不到时把该地址单独指到你的 DNS 上游。
