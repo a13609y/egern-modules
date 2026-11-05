@@ -32,7 +32,8 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `页脚` | 底部小字，可留空 | `{date} {weekday}` → `11月5日 周四` |
 | `纸张样式` | 9 选 1 | `paper` / `sticky` / `grid` … |
 | `字号` | 默认 `15`，固定不变 | `15` |
-| `对齐` | `left` 从左往右（默认）/ `center` 标题和正文一起居中 | `left` |
+| `对齐` | `center` 标题和正文一起居中（默认）/ `left` 全部靠左 | `center` |
+| `锁屏字号` | 锁屏组件单独用的字号，9~32 | `15` |
 
 小规则：
 
@@ -68,6 +69,7 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 同一个组件也能放到**锁屏**（iOS 16+）：锁屏长按 → 自定义 → 添加小组件 → 选 Egern → 选用矩形样式。
 
 - 锁屏上**不显示标题**，只把正文记事一条条列出来。
+- 锁屏的字号用参数里的 **`锁屏字号`** 单独调（默认 15，范围 9~32），和主屏幕的「字号」互不影响。
 - 最多显示 **前 3 条**，再多也不会挤。
 - 锁屏上不能有背景色和自定义颜色（系统统一按单色渲染），所以纸张样式只影响主屏幕。
 - 圆形（accessoryCircular）显示前 2 条，内联（accessoryInline）显示第 1 条。

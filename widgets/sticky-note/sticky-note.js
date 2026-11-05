@@ -171,8 +171,9 @@ function readConfig(env) {
     grid: !!st.grid,
     decor: decorMode === 'auto' ? st.decor : decorMode,
     font: FONTS[pick(env.FONT, Object.keys(FONTS), 'system')] || null,
-    align: pick(env.ALIGN, ['left', 'center', 'right'], 'left'),
+    align: pick(env.ALIGN, ['left', 'center', 'right'], 'center'),
     size: (function () { const v = num(env.SIZE, 15); return v >= 10 ? v : 15; })(),
+    lockSize: (function () { const v = num(env.LOCK_SIZE, 15); return v >= 9 && v <= 32 ? v : 15; })(),
     bullet: trim(env.BULLET),
     title: trim(env.TITLE),
     footer: trim(env.FOOTER),
@@ -210,7 +211,7 @@ function limitFor(family, env) {
 // 优先级：把用户写的所有行都放下 → 放不下就逐档缩字（最小 9pt）→ 还放不下才截断
 function computeLayout(canvas, cfg, lineCount) {
   const f = FAMILY[canvas.family] || FAMILY.systemMedium;
-  const decorH = cfg.decor !== 'none' ? 4 : 0;
+  const decorH = cfg.decor !== 'none' ? 12 : 0;
   const padTop = f.pad + decorH;
   const padBottom = f.pad;
   const availH = canvas.h - padTop - padBottom;
@@ -296,10 +297,11 @@ function fontOf(cfg, size, weight) {
   return f;
 }
 
+// Egern 的定宽 stack 会把子元素居中摆放，所以「左对齐」也必须靠尾部弹性 spacer 顶出来
 function alignChildren(node, align) {
   if (align === 'right') return [{ type: 'spacer' }, node];
   if (align === 'center') return [{ type: 'spacer' }, node, { type: 'spacer' }];
-  return [node];
+  return [node, { type: 'spacer' }];
 }
 
 function rowBox(width, children) {
@@ -422,7 +424,7 @@ function isAccessory(family) {
 function renderAccessory(canvas, cfg, lines, family) {
   const f = FAMILY[family] || FAMILY.accessoryRectangular;
   const items = lines.filter(function (l) { return l !== ''; }).slice(0, 3);
-  const size = Math.max(10, Math.min(16, cfg.size > 0 ? cfg.size : f.body));
+  const size = Math.max(9, Math.min(32, cfg.lockSize || f.body));
   const root = { type: 'widget', gap: 0, padding: [1, 0, 1, 0], refreshAfter: refreshAfter(cfg, new Date()) };
 
   if (items.length === 0) {
@@ -456,7 +458,7 @@ function renderAccessory(canvas, cfg, lines, family) {
       return {
         type: 'text',
         text: t,
-        font: { size: Math.max(9, size - 3), weight: 'regular' },
+        font: { size: Math.max(9, Math.round(size * 0.85)), weight: 'regular' },
         textAlign: 'center',
         maxLines: 1,
         minScale: 1
@@ -476,13 +478,14 @@ function renderAccessory(canvas, cfg, lines, family) {
       width: width,
       height: lineH,
       alignItems: 'center',
-      children: [{
+      children: alignChildren({
         type: 'text',
         text: t,
         font: { size: size, weight: 'regular' },
+        textAlign: cfg.align,
         maxLines: 1,
         minScale: 1
-      }]
+      }, cfg.align)
     };
   });
   if (cfg.url) root.url = cfg.url;

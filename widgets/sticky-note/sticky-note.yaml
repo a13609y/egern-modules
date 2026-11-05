@@ -18,12 +18,13 @@ compat_arguments:
   FOOTER: ""
   STYLE: paper
   SIZE: "15"
-  ALIGN: left
+  ALIGN: center
+  LOCK_SIZE: "15"
 
 compat_arguments_desc: |
   在下面填文字就行：TITLE 是标题，LINE1~LINE8 是正文各行，留空就不显示。
   想空一行就写一个 - 号。FOOTER 里可以用 {date} {md} {weekday} 自动填日期。
-  字太长会自动显示成省略号，不会缩字；想要标题和正文都居中就把「对齐」改成 center。
+  字太长会自动显示成省略号，不会缩字。锁屏组件的字号单独用「锁屏字号」调。
 
 # ── 模块设置页自动生成的 UI 控件（只留最常用的几项）──────────────
 env_schema:
@@ -79,12 +80,16 @@ env_schema:
     description: 默认 15，字号固定不变；一行写太长会自动省略，不会缩字。
     default_value: "15"
   ALIGN:
-    name: 对齐
-    description: left 从左往右（默认）/ center 标题和正文都居中
-    default_value: left
+    name: 主屏幕对齐
+    description: center 标题和正文都居中（默认）/ left 全部靠左
+    default_value: center
     options:
-      - left
       - center
+      - left
+  LOCK_SIZE:
+    name: 锁屏字号
+    description: 锁屏小组件（accessory）用的字号，可以和主屏幕不一样。默认 15，可填 9~32。
+    default_value: "15"
 
 dns: {}
 
@@ -107,6 +112,7 @@ scriptings:
         STYLE: "{{{STYLE}}}"
         SIZE: "{{{SIZE}}}"
         ALIGN: "{{{ALIGN}}}"
+        LOCK_SIZE: "{{{LOCK_SIZE}}}"
 
 widgets:
   - name: 便签
