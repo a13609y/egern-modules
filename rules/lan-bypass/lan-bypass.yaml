@@ -167,6 +167,7 @@ real_ip_domains:
   # —— 本地回环与开发 ——
   - "localhost.*.qq.com"
   - "localhost.*.weixin.qq.com"
+  - "*.ts.net"            # Tailscale MagicDNS，Fake IP 会让 tailnet 主机名解析失败
   - "*.sslip.io"
   - "*.nip.io"
   - "proxy.golang.org"
