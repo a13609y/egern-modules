@@ -12,9 +12,9 @@
 const VERSION = '1.0.0';
 
 const FAMILY = {
-  systemSmall: { w: 155, h: 155, pad: 12, title: 17, body: 15, foot: 11 },
-  systemMedium: { w: 329, h: 155, pad: 14, title: 17, body: 15, foot: 11 },
-  systemLarge: { w: 329, h: 345, pad: 18, title: 21, body: 15, foot: 12 },
+  systemSmall: { w: 155, h: 155, pad: 14, padV: 10, title: 17, body: 15, foot: 11 },
+  systemMedium: { w: 329, h: 155, pad: 14, padV: 10, title: 17, body: 15, foot: 11 },
+  systemLarge: { w: 329, h: 345, pad: 18, padV: 14, title: 21, body: 15, foot: 12 },
   systemExtraLarge: { w: 345, h: 345, pad: 18, title: 21, body: 15, foot: 12 },
   accessoryRectangular: { w: 160, h: 72, pad: 2, title: 13, body: 15, foot: 10 },
   accessoryCircular: { w: 76, h: 76, pad: 2, title: 12, body: 13, foot: 10 },
@@ -198,22 +198,23 @@ function readCanvas(ctx, family) {
   return { family: family, w: Math.round(w), h: Math.round(h) };
 }
 
+const DEFAULT_LIMIT = { systemSmall: 4, systemMedium: 4, systemLarge: 8, systemExtraLarge: 8 };
+
 function limitFor(family, env) {
-  const f = FAMILY[family] || FAMILY.systemMedium;
   const key = family === 'systemSmall' ? 'LINES_S' : family === 'systemLarge' ? 'LINES_L' : 'LINES_M';
   const v = trim(env[key]).toLowerCase();
-  if (!v || v === 'auto') return 0;                     // 0 = 按画布自动
+  if (!v || v === 'auto') return DEFAULT_LIMIT[family] || 4;
   const n = num(v, 0);
-  return n > 0 ? Math.floor(n) : 0;
+  return n > 0 ? Math.floor(n) : (DEFAULT_LIMIT[family] || 4);
 }
 
 // ── 排版计算 ─────────────────────────────────────────────
 // 优先级：把用户写的所有行都放下 → 放不下就逐档缩字（最小 9pt）→ 还放不下才截断
 function computeLayout(canvas, cfg, lineCount) {
   const f = FAMILY[canvas.family] || FAMILY.systemMedium;
-  const decorH = cfg.decor !== 'none' ? 12 : 0;
-  const padTop = f.pad + decorH;
-  const padBottom = f.pad;
+  const decorH = cfg.decor !== 'none' ? 6 : 0;
+  const padTop = (f.padV || f.pad) + decorH;
+  const padBottom = f.padV || f.pad;
   const availH = canvas.h - padTop - padBottom;
   const hasTitle = !!cfg.title;
   const hasFoot = !!cfg.footer;
@@ -224,7 +225,7 @@ function computeLayout(canvas, cfg, lineCount) {
   const footH = hasFoot ? Math.round(footSize * 1.4) : 0;
   const gapT = hasTitle ? 5 : 0;
   const gapF = hasFoot ? 5 : 0;
-  const lineH = Math.round(s * 1.4);
+  const lineH = Math.round(s * 1.32);
   const bodyH = availH - titleH - gapT - footH - gapF;
   const fit = Math.max(0, Math.floor(bodyH / lineH));
   const pick2 = { bodySize: s, titleSize: titleSize, footSize: footSize, titleH: titleH, footH: footH, gapT: gapT, gapF: gapF, lineH: lineH, bodyH: bodyH, fit: fit };
@@ -369,19 +370,6 @@ function render(canvas, cfg, lines, now, cap) {
     };
     if (ruleSrc) node.backgroundImage = ruleSrc;
     children.push(node);
-  }
-
-  if (lines.length > L.shown) {
-    // 放不下的行用省略提示，不挤爆布局
-    children.push(rowBox(L.contentW, alignChildren({
-      type: 'text',
-      text: '⋯ 还有 ' + (lines.length - L.shown) + ' 行',
-      font: fontOf(cfg, Math.max(8, L.footSize - 1), 'regular'),
-      textColor: typeof cfg.ink === 'string' ? hexToRgba(cfg.ink, 0.45) : cfg.ink,
-      textAlign: cfg.align,
-      maxLines: 1,
-      minScale: 1
-    }, cfg.align)));
   }
 
   children.push({ type: 'spacer' });

@@ -15,7 +15,6 @@ compat_arguments:
   LINE6: ""
   LINE7: ""
   LINE8: ""
-  FOOTER: ""
   STYLE: paper
   SIZE: "15"
   ALIGN: center
@@ -23,7 +22,7 @@ compat_arguments:
 
 compat_arguments_desc: |
   在下面填文字就行：TITLE 是标题，LINE1~LINE8 是正文各行，留空就不显示。
-  想空一行就写一个 - 号。FOOTER 里可以用 {date} {md} {weekday} 自动填日期。
+  想空一行就写一个 - 号。
   字太长会自动显示成省略号，不会缩字。锁屏组件的字号单独用「锁屏字号」调。
 
 # ── 模块设置页自动生成的 UI 控件（只留最常用的几项）──────────────
@@ -56,10 +55,6 @@ env_schema:
     default_value: ""
   LINE8:
     name: 第 8 行
-    default_value: ""
-  FOOTER:
-    name: 页脚
-    description: 右下角小字，留空不显示。{date}=11月5日，{md}=11/05，{weekday}=周四。
     default_value: ""
   STYLE:
     name: 纸张样式
@@ -108,7 +103,6 @@ scriptings:
         LINE6: "{{{LINE6}}}"
         LINE7: "{{{LINE7}}}"
         LINE8: "{{{LINE8}}}"
-        FOOTER: "{{{FOOTER}}}"
         STYLE: "{{{STYLE}}}"
         SIZE: "{{{SIZE}}}"
         ALIGN: "{{{ALIGN}}}"

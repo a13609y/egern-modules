@@ -1,7 +1,7 @@
 # 便签 · Sticky Note
 
 iOS 主屏幕便签小组件，跑在 [Egern](https://egernapp.com) 上。
-**填几行字就能用**：标题 + 8 行正文 + 页脚，留空的格不会显示。9 种纸张样式选一个就完事。
+**填几行字就能用**：标题 + 8 行正文，留空的格不会显示。9 种纸张样式选一个就完事。
 
 订阅地址：
 
@@ -29,7 +29,6 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | --- | --- | --- |
 | `标题` | 第一行，加粗 | `本周待办` |
 | `第 1 行` ~ `第 8 行` | 正文，**留空就不显示** | `买牛奶和鸡蛋` |
-| `页脚` | 底部小字，可留空 | `{date} {weekday}` → `11月5日 周四` |
 | `纸张样式` | 9 选 1 | `paper` / `sticky` / `grid` … |
 | `字号` | 默认 `15`，固定不变 | `15` |
 | `对齐` | `center` 标题和正文一起居中（默认）/ `left` 全部靠左 | `center` |
@@ -41,8 +40,7 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 - 字号**不会为了塞内容而变小**。一行字太长，超出部分显示成 `…`，永远不换行。
 - 行数超过组件能放下的量，末尾提示 `⋯ 还有 N 行`，写大号或调小字号就能多放。
 
-页脚占位符：`{date}`=`11月5日`、`{md}`=`11/05`、`{weekday}`=`周四`、`{time}`=`14:30`、`{yyyy}`/`{mm}`/`{dd}`。
-页脚带日期时，组件会在**次日凌晨 2 点**自动刷新，日期不会停在昨天。
+行数上限：**小号 4 行、中号 4 行、大号 8 行**，超出直接不显示，没有多余提示。
 
 ---
 
@@ -78,11 +76,11 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 
 | 尺寸 | 画布 | 正文行数 |
 | --- | --- | --- |
-| 小号 | 155×155 | 3 行 |
-| 中号 | 329×155 | 3 行 |
-| 大号 | 329×345 | 11~12 行 |
+| 小号 | 155×155 | 4 行 |
+| 中号 | 329×155 | 4 行 |
+| 大号 | 329×345 | 8 行 |
 
-想在小/中号塞更多行，把「字号」调小一点（比如 13）。
+字号越大，能放下的行数越少；放不下时多出来的行直接不显示，而不去挤或缩字。
 
 ---
 
@@ -99,7 +97,8 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `RULED` | `auto` / `on` / `off` | 跟随样式 |
 | `FONT` | `system` / `kaiti` 楷体 / `songti` 宋体 / `pingfang` 苹方 / `mono` | `system` |
 | `ALIGN` | `left` / `center` / `right` | `left` |
-| `LINES_S` `LINES_M` `LINES_L` | 各尺寸硬性限制行数 | `auto` |
+| `LINES_S` `LINES_M` `LINES_L` | 各尺寸显示行数上限 | 4 / 4 / 8 |
+| `FOOTER` | 底部小字（默认不显示，要开就手动填，支持 `{date}` `{weekday}` 等） | 空 |
 | `REFRESH_HOURS` | 刷新提示间隔（小时） | `6` |
 | `URL` | 点击组件打开的链接 | 空 |
 
@@ -108,5 +107,5 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 ## 已知限制
 
 - 锁屏组件没有背景和自定义颜色（iOS 限制），只能显示纯文字，最多 3 条。
-- 刷新是「提示」不是「保证」，iOS 自己决定何时重算；内容是静态文字，除页脚日期外不影响观感。
+- 刷新是「提示」不是「保证」，iOS 自己决定何时重算；内容全是静态文字，所以刷新频率对观感没影响。
 - 官方组件 DSL 没有行高和旋转属性，所以便签本身没法倾斜（只有胶带装饰带一点角度）。
