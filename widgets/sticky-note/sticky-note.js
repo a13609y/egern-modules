@@ -15,7 +15,10 @@ const FAMILY = {
   systemSmall: { w: 155, h: 155, pad: 12, title: 17, body: 15, foot: 11 },
   systemMedium: { w: 329, h: 155, pad: 14, title: 17, body: 15, foot: 11 },
   systemLarge: { w: 329, h: 345, pad: 18, title: 21, body: 15, foot: 12 },
-  systemExtraLarge: { w: 345, h: 345, pad: 18, title: 21, body: 15, foot: 12 }
+  systemExtraLarge: { w: 345, h: 345, pad: 18, title: 21, body: 15, foot: 12 },
+  accessoryRectangular: { w: 160, h: 72, pad: 2, title: 13, body: 15, foot: 10 },
+  accessoryCircular: { w: 76, h: 76, pad: 2, title: 12, body: 13, foot: 10 },
+  accessoryInline: { w: 160, h: 22, pad: 0, title: 12, body: 13, foot: 10 }
 };
 
 // ── 样式预设 ─────────────────────────────────────────────
@@ -169,7 +172,7 @@ function readConfig(env) {
     decor: decorMode === 'auto' ? st.decor : decorMode,
     font: FONTS[pick(env.FONT, Object.keys(FONTS), 'system')] || null,
     align: pick(env.ALIGN, ['left', 'center', 'right'], 'left'),
-    size: Math.max(0, num(env.SIZE, 15)),
+    size: (function () { const v = num(env.SIZE, 15); return v >= 10 ? v : 15; })(),
     bullet: trim(env.BULLET),
     title: trim(env.TITLE),
     footer: trim(env.FOOTER),
@@ -213,24 +216,17 @@ function computeLayout(canvas, cfg, lineCount) {
   const availH = canvas.h - padTop - padBottom;
   const hasTitle = !!cfg.title;
   const hasFoot = !!cfg.footer;
-  const fixed = cfg.size > 0;                     // 填了字号就固定，不自动缩
-  const start = fixed ? cfg.size : f.body;
-  const floor = fixed ? start : 10;               // 0 = 自动：逐档缩到放得下，最小 10pt
-
-  let pick2 = null;
-  for (let s = start; s >= floor; s--) {
-    const titleSize = Math.max(12, Math.round(s * 1.18));
-    const footSize = Math.max(9, Math.round(s * 0.75));
-    const titleH = hasTitle ? Math.round(titleSize * 1.35) : 0;
-    const footH = hasFoot ? Math.round(footSize * 1.4) : 0;
-    const gapT = hasTitle ? 5 : 0;
-    const gapF = hasFoot ? 5 : 0;
-    const lineH = Math.round(s * 1.4);
-    const bodyH = availH - titleH - gapT - footH - gapF;
-    const fit = Math.max(0, Math.floor(bodyH / lineH));
-    pick2 = { bodySize: s, titleSize: titleSize, footSize: footSize, titleH: titleH, footH: footH, gapT: gapT, gapF: gapF, lineH: lineH, bodyH: bodyH, fit: fit };
-    if (pick2.fit >= lineCount && pick2.fit > 0) break;
-  }
+  const s = cfg.size > 0 ? cfg.size : f.body;      // 固定字号，永不为塞行数缩字
+  const titleSize = Math.max(12, Math.round(s * 1.18));
+  const footSize = Math.max(9, Math.round(s * 0.75));
+  const titleH = hasTitle ? Math.round(titleSize * 1.35) : 0;
+  const footH = hasFoot ? Math.round(footSize * 1.4) : 0;
+  const gapT = hasTitle ? 5 : 0;
+  const gapF = hasFoot ? 5 : 0;
+  const lineH = Math.round(s * 1.4);
+  const bodyH = availH - titleH - gapT - footH - gapF;
+  const fit = Math.max(0, Math.floor(bodyH / lineH));
+  const pick2 = { bodySize: s, titleSize: titleSize, footSize: footSize, titleH: titleH, footH: footH, gapT: gapT, gapF: gapF, lineH: lineH, bodyH: bodyH, fit: fit };
   pick2.padTop = padTop;
   pick2.padBottom = padBottom;
   pick2.padL = f.pad;
@@ -306,6 +302,10 @@ function alignChildren(node, align) {
   return [node];
 }
 
+function rowBox(width, children) {
+  return { type: 'stack', direction: 'row', width: width, alignItems: 'center', children: children };
+}
+
 function wrapAlign(node, align) {
   const c = alignChildren(node, align);
   return c.length === 1 ? node : { type: 'stack', direction: 'row', alignItems: 'center', children: c };
@@ -317,29 +317,29 @@ function render(canvas, cfg, lines, now, cap) {
   const children = [];
 
   if (cfg.title) {
-    children.push(wrapAlign({
+    children.push(rowBox(L.contentW, alignChildren({
       type: 'text',
       text: cfg.title,
       font: fontOf(cfg, L.titleSize, 'bold'),
       textColor: cfg.accent,
       textAlign: cfg.align,
       maxLines: 1,
-      minScale: 0.6
-    }, cfg.align));
+      minScale: 1
+    }, cfg.align)));
     children.push({ type: 'spacer', length: L.gapT });
   }
 
   if (lines.length === 0) {
     children.push({ type: 'spacer' });
-    children.push(wrapAlign({
+    children.push(rowBox(L.contentW, alignChildren({
       type: 'text',
       text: '✍️ 在模块设置里写点什么',
       font: fontOf(cfg, Math.max(11, L.bodySize - 1), 'regular'),
       textColor: typeof cfg.ink === 'string' ? hexToRgba(cfg.ink, 0.5) : cfg.ink,
       textAlign: 'center',
       maxLines: 1,
-      minScale: 0.6
-    }, 'center'));
+      minScale: 1
+    }, 'center')));
     children.push({ type: 'spacer' });
     return { L: L, children: children };
   }
@@ -355,7 +355,7 @@ function render(canvas, cfg, lines, now, cap) {
       textColor: cfg.ink,
       textAlign: cfg.align,
       maxLines: 1,
-      minScale: 0.55
+      minScale: 1
     };
     const node = {
       type: 'stack',
@@ -371,30 +371,30 @@ function render(canvas, cfg, lines, now, cap) {
 
   if (lines.length > L.shown) {
     // 放不下的行用省略提示，不挤爆布局
-    children.push(wrapAlign({
+    children.push(rowBox(L.contentW, alignChildren({
       type: 'text',
       text: '⋯ 还有 ' + (lines.length - L.shown) + ' 行',
       font: fontOf(cfg, Math.max(8, L.footSize - 1), 'regular'),
       textColor: typeof cfg.ink === 'string' ? hexToRgba(cfg.ink, 0.45) : cfg.ink,
       textAlign: cfg.align,
       maxLines: 1,
-      minScale: 0.6
-    }, cfg.align));
+      minScale: 1
+    }, cfg.align)));
   }
 
   children.push({ type: 'spacer' });
 
   if (cfg.footer) {
     children.push({ type: 'spacer', length: L.gapF });
-    children.push(wrapAlign({
+    children.push(rowBox(L.contentW, alignChildren({
       type: 'text',
       text: fmt(cfg.footer, now),
       font: fontOf(cfg, L.footSize, 'regular'),
       textColor: typeof cfg.ink === 'string' ? hexToRgba(cfg.ink, 0.55) : cfg.ink,
       textAlign: cfg.align,
       maxLines: 1,
-      minScale: 0.6
-    }, cfg.align));
+      minScale: 1
+    }, cfg.align)));
   }
 
   return { L: L, children: children };
@@ -411,12 +411,91 @@ function refreshAfter(cfg, now) {
   return d.toISOString();
 }
 
+
+// ── 锁屏（accessory）──────────────────────────────────────
+// 锁屏组件由系统用「单色 vibrancy」绘制：不能有背景、不能用自定义颜色，
+// 所以这里只输出纯文字，标题一律不显示，正文最多 3 条。
+function isAccessory(family) {
+  return family === 'accessoryRectangular' || family === 'accessoryCircular' || family === 'accessoryInline';
+}
+
+function renderAccessory(canvas, cfg, lines, family) {
+  const f = FAMILY[family] || FAMILY.accessoryRectangular;
+  const items = lines.filter(function (l) { return l !== ''; }).slice(0, 3);
+  const size = Math.max(10, Math.min(16, cfg.size > 0 ? cfg.size : f.body));
+  const root = { type: 'widget', gap: 0, padding: [1, 0, 1, 0], refreshAfter: refreshAfter(cfg, new Date()) };
+
+  if (items.length === 0) {
+    root.children = [{
+      type: 'text',
+      text: '写点什么',
+      font: { size: size, weight: 'regular' },
+      maxLines: 1,
+      minScale: 1
+    }];
+    if (cfg.url) root.url = cfg.url;
+    return root;
+  }
+
+  if (family === 'accessoryInline') {
+    root.children = [{
+      type: 'text',
+      text: items[0],
+      font: { size: size, weight: 'regular' },
+      maxLines: 1,
+      minScale: 1
+    }];
+    if (cfg.url) root.url = cfg.url;
+    return root;
+  }
+
+  if (family === 'accessoryCircular') {
+    const pic = items.slice(0, 2);
+    root.padding = 2;
+    root.children = pic.map(function (t) {
+      return {
+        type: 'text',
+        text: t,
+        font: { size: Math.max(9, size - 3), weight: 'regular' },
+        textAlign: 'center',
+        maxLines: 1,
+        minScale: 1
+      };
+    });
+    if (cfg.url) root.url = cfg.url;
+    return root;
+  }
+
+  // accessoryRectangular：一条一行，最多 3 条，超出部分直接不画
+  const lineH = Math.round(size * 1.32);
+  const width = canvas.w;
+  root.children = items.map(function (t) {
+    return {
+      type: 'stack',
+      direction: 'row',
+      width: width,
+      height: lineH,
+      alignItems: 'center',
+      children: [{
+        type: 'text',
+        text: t,
+        font: { size: size, weight: 'regular' },
+        maxLines: 1,
+        minScale: 1
+      }]
+    };
+  });
+  if (cfg.url) root.url = cfg.url;
+  return root;
+}
+
 function buildWidget(env, ctx) {
   const family = ctx && ctx.widgetFamily ? String(ctx.widgetFamily) : 'systemMedium';
   const now = new Date();
   const cfg = readConfig(env || {});
   const canvas = readCanvas(ctx, family);
   const lines = readLines(env || {});
+  if (isAccessory(family)) return renderAccessory(canvas, cfg, lines, family);
   const cap = limitFor(family, env || {});
   const rendered = render(canvas, cfg, lines, now, cap);
   const transparent = cfg.style.paper === 'transparent';
@@ -466,7 +545,7 @@ function fallback(ctx, err) {
       font: { size: f.body - 1, weight: 'regular' },
       textColor: '#8A5A00',
       maxLines: 3,
-      minScale: 0.6
+      minScale: 1
     }]
   };
 }
@@ -479,4 +558,4 @@ export default async function (ctx) {
   }
 }
 
-export { buildWidget, readLines, readConfig, computeLayout, STYLES, VERSION };
+export { buildWidget, readLines, readConfig, computeLayout, renderAccessory, STYLES, VERSION };

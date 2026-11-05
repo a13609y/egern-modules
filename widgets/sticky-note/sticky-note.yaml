@@ -18,10 +18,12 @@ compat_arguments:
   FOOTER: ""
   STYLE: paper
   SIZE: "15"
+  ALIGN: left
 
 compat_arguments_desc: |
   在下面填文字就行：TITLE 是标题，LINE1~LINE8 是正文各行，留空就不显示。
   想空一行就写一个 - 号。FOOTER 里可以用 {date} {md} {weekday} 自动填日期。
+  字太长会自动显示成省略号，不会缩字；想要标题和正文都居中就把「对齐」改成 center。
 
 # ── 模块设置页自动生成的 UI 控件（只留最常用的几项）──────────────
 env_schema:
@@ -74,8 +76,15 @@ env_schema:
       - transparent
   SIZE:
     name: 字号
-    description: 默认 15。填 0 表示自动缩字（行多时自动变小，保证都放得下）。
+    description: 默认 15，字号固定不变；一行写太长会自动省略，不会缩字。
     default_value: "15"
+  ALIGN:
+    name: 对齐
+    description: left 从左往右（默认）/ center 标题和正文都居中
+    default_value: left
+    options:
+      - left
+      - center
 
 dns: {}
 
@@ -97,6 +106,7 @@ scriptings:
         FOOTER: "{{{FOOTER}}}"
         STYLE: "{{{STYLE}}}"
         SIZE: "{{{SIZE}}}"
+        ALIGN: "{{{ALIGN}}}"
 
 widgets:
   - name: 便签
