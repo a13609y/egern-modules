@@ -12,7 +12,7 @@
 https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/lan-bypass/lan-bypass.yaml
 ```
 
-当前条目：绕过 41 条、真实 IP 83 条、MITM 排除 12 条。
+当前条目：绕过 40 条、真实 IP 84 条、MITM 排除 12 条。
 
 ---
 
