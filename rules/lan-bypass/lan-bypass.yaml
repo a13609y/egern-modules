@@ -1,27 +1,33 @@
-name: 局域网直连（Bypass Tunnel）
-description: 私有网段、组播、链路本地与本地域名不走隧道，修复局域网设备、投屏、打印机、内网访问；附带门户/连通性检测的真实 IP 解析。
+name: 通用增强（General Enhanced）
+description: ①私有网段/组播/链路本地/本地域名不走隧道 ②门户检测、游戏联机、音乐版权、免流自服务等用真实 IP 解析 ③证书钉扎与不可解密域名不做 MITM。整合 VirgilClyne Fries General、fmz200 wool_scripts、dler-io Rules、DualSubs、Rabbit-Spec 等公开清单。
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules/tree/main/rules/lan-bypass
 manual: https://github.com/a13609y/egern-modules/blob/main/rules/lan-bypass/README.md
 icon: network
 
+# ============================================================
+# 1. 绕过隧道（连接层豁免）
 # 命中这里的目标不进入隧道：不解析 HTTP、不劫持 DNS、不做 Fake IP，
 # 直接由物理链路发出。组播 / 广播 / 链路本地只能走这一层，规则 DIRECT 兜不住。
+# ============================================================
 bypass_tunnel_proxy:
   # —— 本地与内网名字 ——
   - "localhost"
   - "*.localhost"
   - "*.local"
   - "*.lan"
+  - "*.direct"
   - "*.home.arpa"
 
   # —— IPv4 私有 / 保留 ——
   - "10.0.0.0/8"
   - "172.16.0.0/12"
   - "192.168.0.0/16"
+  - "192.168.122.1/32"   # QEMU/libvirt 默认网关
   - "169.254.0.0/16"     # 链路本地（无 DHCP 时自动分配）
   - "127.0.0.0/8"
   - "100.64.0.0/10"      # CGNAT：Tailscale / ZeroTier / 运营商共享地址
+  - "17.0.0.0/8"         # Apple 自有段（部分服务对代理敏感）
 
   # —— IPv4 组播 / 广播（mDNS、SSDP、DHCP、NetBIOS）——
   - "224.0.0.0/4"
@@ -33,21 +39,160 @@ bypass_tunnel_proxy:
   - "fc00::/7"           # ULA 内网
   - "ff00::/8"           # 组播
 
-# 这些域名用真实 IP 解析（不用 Fake IP），否则门户登录页、NTP、微信本地回环会失效。
-real_ip_domains:
-  - "*.local"
-  - "*.lan"
-  - "*.home.arpa"
+  # —— 连通性检测与崩溃上报（被代理劫持会误判「无网络」/打断上报）——
   - "captive.apple.com"
   - "*.captive.apple.com"
+  - "e.crashlytics.com"
+  - "*.crashlytics.com"
+
+  # —— 会主动检测代理、直连成功率更高的国内 App ——
+  # 这些是公网域名，命中后同样不受去广告/脚本管控；不需要可整段删除。
+  - "www.baidu.com"
+  - "www.163.com"
+  - "passenger.t3go.cn"
+  - "gate.lagou.com"
+  - "www.shanbay.com"
+  - "www.boc.com"
+  - "www.abchina.com.cn"
+  - "*.abchina.com.cn"
+  - "www.ccb.com"
+  - "*.ccb.com"
+  - "yunbusiness.ccb.com"
+  - "*.psbc.com"
+  - "login-service.mobile-bank.psbc.com"
+  - "mobile-bank.psbc.com"
+  - "wxh.wo.cn"
+  - "emm.deltaww.com.cn"
+  - "id6.me"
+
+# ============================================================
+# 2. 真实 IP 解析（仍走隧道，但返回真实 IP 而不用 Fake IP）
+# 用 Fake IP 会让这些服务拿到的地址不真实：联机匹配失败、CDN 调度错、
+# 版权/音质校验失败、免流自服务认不出手机号、NTP 校时错乱。
+# ============================================================
+real_ip_domains:
+  # —— 本地 / 门户检测（决定「有没有网络」「要不要弹登录页」）——
+  - "cable.auth.com"
   - "*.msftconnecttest.com"
+  - "msftconnecttest.com"
   - "*.msftncsi.com"
-  - "detectportal.firefox.com"
-  - "connectivitycheck.gstatic.com"
+  - "msftncsi.com"
   - "network-test.debian.org"
-  - "localhost.weixin.qq.com"
-  - "localhost.work.weixin.qq.com"
+  - "detectportal.firefox.com"
+  - "resolver1.opendns.com"
+  - "connectivitycheck.gstatic.com"
+  - "*.push.apple.com"
+
+  # —— 时区 / 校时 ——
   - "pool.ntp.org"
   - "*.pool.ntp.org"
-  - "time.apple.com"
+  - "ntp.*.com"
+  - "time.*.com"
+  - "time.*.gov"
+  - "time.*.edu.cn"
   - "*.ntp.org.cn"
+
+  # —— 游戏联机（Switch / PlayStation / Xbox / 暴雪）——
+  - "*.srv.nintendo.net"
+  - "*.stun.playstation.net"
+  - "xbox.*.microsoft.com"
+  - "*.xboxlive.com"
+  - "*.logon.battlenet.com.cn"
+  - "*.logon.battle.net"
+  - "*.battlenet.com"
+  - "*.battlenet.com.cn"
+  - "*.battle.net"
+  - "*.blzstatic.cn"
+
+  # —— NAT 穿透 / 语音视频（STUN、TURN、Syncthing）——
+  - "stun.*"
+  - "stun.l.google.com"
+  - "stun.syncthing.net"
+  - "global.turn.twilio.com"
+  - "global.stun.twilio.com"
+
+  # —— 流媒体版权与播放（Fake IP 会导致版权区判定错、起播失败）——
+  - "*.prod.cloud.netflix.com"
+  - "appboot.netflix.com"
+  - "*-appboot.netflix.com"
+  - "*.mcdn.bilivideo.cn"
+
+  # —— 音乐版权校验（音质/地区校验走真实 IP）——
+  - "music.163.com"
+  - "*.music.163.com"
+  - "*.126.net"
+  - "musicapi.taihe.com"
+  - "music.taihe.com"
+  - "songsearch.kugou.com"
+  - "trackercdn.kugou.com"
+  - "*.kuwo.cn"
+  - "api-jooxtt.sanook.com"
+  - "api.joox.com"
+  - "joox.com"
+  - "y.qq.com"
+  - "*.y.qq.com"
+  - "streamoc.music.tc.qq.com"
+  - "mobileoc.music.tc.qq.com"
+  - "isure.stream.qqmusic.qq.com"
+  - "dl.stream.qqmusic.qq.com"
+  - "aqqmusic.tc.qq.com"
+  - "amobile.music.tc.qq.com"
+  - "*.xiami.com"
+  - "*.music.migu.cn"
+  - "music.migu.cn"
+
+  # —— 运营商免流 / 自服务（认手机号、认接入点）——
+  - "open.e.189.cn"
+  - "opencloud.wostore.cn"
+  - "id.mail.wo.cn"
+  - "mdn.open.wo.cn"
+  - "hmrz.wo.cn"
+  - "nishub1.10010.com"
+  - "enrichgw.10010.com"
+  - "*.wosms.cn"
+  - "*.cmpassport.com"
+  - "*.10099.com.cn"
+  - "easy-login.10099.com.cn"
+  - "*-update.xoyocdn.com"
+  - "*.jegotrip.com.cn"
+  - "*.icitymobile.mobi"
+  - "*.microdone.cn"
+
+  # —— 金融类（证书/风控对 CDN 调度敏感）——
+  - "*.pingan.com.cn"
+  - "*.cmbchina.com"
+
+  # —— 本地回环与开发 ——
+  - "localhost.*.qq.com"
+  - "localhost.*.weixin.qq.com"
+  - "*.sslip.io"
+  - "*.nip.io"
+  - "proxy.golang.org"
+
+  # —— 其他 ——
+  - "app.yinxiang.com"
+  - "injections.adguard.org"
+  - "local.adguard.org"
+
+# ============================================================
+# 3. MITM 排除
+# 这些域名即使被主配置的 MITM 命中也不解密：证书钉扎的 App 一解密就白屏/断连，
+# 部分系统服务解密后直接失效。只声明排除，不会替你把任何域名放进 MITM。
+# ============================================================
+mitm:
+  hostnames:
+    excludes:
+      # 证书钉扎，解密即断连
+      - "*.facebook.com"
+      - "*.instagram.com"
+      - "*.twitter.com"
+      - "*.snssdk.com"
+      - "*.pstatp.com"
+      # 系统关键服务，不能碰
+      - "gateway.icloud.com"
+      - "gateway.icloud.com.cn"
+      - "weather-data.apple.com"
+      - "buy.itunes.apple.com"
+      - "play.itunes.apple.com"
+      - "play-edge.itunes.apple.com"
+      - "ios.chat.openai.com"
