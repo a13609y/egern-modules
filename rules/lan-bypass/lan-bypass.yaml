@@ -1,0 +1,53 @@
+name: 局域网直连（Bypass Tunnel）
+description: 私有网段、组播、链路本地与本地域名不走隧道，修复局域网设备、投屏、打印机、内网访问；附带门户/连通性检测的真实 IP 解析。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules/tree/main/rules/lan-bypass
+manual: https://github.com/a13609y/egern-modules/blob/main/rules/lan-bypass/README.md
+icon: network
+
+# 命中这里的目标不进入隧道：不解析 HTTP、不劫持 DNS、不做 Fake IP，
+# 直接由物理链路发出。组播 / 广播 / 链路本地只能走这一层，规则 DIRECT 兜不住。
+bypass_tunnel_proxy:
+  # —— 本地与内网名字 ——
+  - "localhost"
+  - "*.localhost"
+  - "*.local"
+  - "*.lan"
+  - "*.home.arpa"
+
+  # —— IPv4 私有 / 保留 ——
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+  - "169.254.0.0/16"     # 链路本地（无 DHCP 时自动分配）
+  - "127.0.0.0/8"
+  - "100.64.0.0/10"      # CGNAT：Tailscale / ZeroTier / 运营商共享地址
+
+  # —— IPv4 组播 / 广播（mDNS、SSDP、DHCP、NetBIOS）——
+  - "224.0.0.0/4"
+  - "255.255.255.255/32"
+
+  # —— IPv6 ——
+  - "::1/128"
+  - "fe80::/10"          # 链路本地：NDP 邻居发现、无状态自动配置
+  - "fc00::/7"           # ULA 内网
+  - "ff00::/8"           # 组播
+
+# 这些域名用真实 IP 解析（不用 Fake IP），否则门户登录页、NTP、微信本地回环会失效。
+real_ip_domains:
+  - "*.local"
+  - "*.lan"
+  - "*.home.arpa"
+  - "captive.apple.com"
+  - "*.captive.apple.com"
+  - "*.msftconnecttest.com"
+  - "*.msftncsi.com"
+  - "detectportal.firefox.com"
+  - "connectivitycheck.gstatic.com"
+  - "network-test.debian.org"
+  - "localhost.weixin.qq.com"
+  - "localhost.work.weixin.qq.com"
+  - "pool.ntp.org"
+  - "*.pool.ntp.org"
+  - "time.apple.com"
+  - "*.ntp.org.cn"
