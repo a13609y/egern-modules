@@ -1,0 +1,212 @@
+name: 便签
+description: 桌面便签小组件 · 9 种纸张样式（信纸/便利贴/方格纸/牛皮纸/黑板/透明…）· 文字全部由模块参数自己填，留空即不显示
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules
+icon: note.text
+
+# ── 模块参数默认值（用户可在「模块设置」里逐项覆盖）──────────────
+compat_arguments:
+  TITLE: ""
+  LINE1: ""
+  LINE2: ""
+  LINE3: ""
+  LINE4: ""
+  LINE5: ""
+  LINE6: ""
+  LINE7: ""
+  LINE8: ""
+  NOTE: ""
+  FOOTER: ""
+  BULLET: ""
+  STYLE: paper
+  COLOR: ""
+  INK: ""
+  ACCENT: ""
+  RULE: ""
+  DECOR: auto
+  RULED: auto
+  FONT: system
+  SIZE: "0"
+  ALIGN: left
+  LINES_S: auto
+  LINES_M: auto
+  LINES_L: auto
+  REFRESH_HOURS: "6"
+  URL: ""
+
+compat_arguments_desc: |
+  文字：TITLE 标题、LINE1~LINE8 正文行、FOOTER 页脚，留空即不显示。
+  空行写一个 - 号；NOTE 里可以用真正的换行，写了 NOTE 就忽略 LINE1~8。
+  造型：STYLE 选纸张，COLOR / INK / ACCENT 可单独改颜色（留空用样式默认）。
+  FOOTER 支持占位符 {date} {md} {weekday} {time} {yyyy} {mm} {dd}。
+
+# ── 模块设置页自动生成的 UI 控件 ────────────────────────────
+env_schema:
+  TITLE:
+    name: 标题（第一行，加粗）
+    description: 留空不显示。建议 2~8 个字，太长会自动缩字。
+    default_value: ""
+  LINE1:
+    name: 正文第 1 行
+    description: 留空不显示；写单个 - 表示空一行。
+    default_value: ""
+  LINE2:
+    name: 正文第 2 行
+    default_value: ""
+  LINE3:
+    name: 正文第 3 行
+    default_value: ""
+  LINE4:
+    name: 正文第 4 行
+    default_value: ""
+  LINE5:
+    name: 正文第 5 行
+    default_value: ""
+  LINE6:
+    name: 正文第 6 行
+    default_value: ""
+  LINE7:
+    name: 正文第 7 行
+    default_value: ""
+  LINE8:
+    name: 正文第 8 行
+    default_value: ""
+  NOTE:
+    name: 多行文本（可选）
+    description: 想一次写很多行时用这个，里面直接回车换行。填了就忽略 LINE1~LINE8。
+    default_value: ""
+  FOOTER:
+    name: 页脚（右下角小字）
+    description: 留空不显示。支持 {date}=11月5日、{md}=11/05、{weekday}=周四、{time}=14:30。
+    default_value: ""
+  BULLET:
+    name: 每行前缀符号
+    description: 例如 •、–、☐、· ，统一加在每行开头。留空不加。
+    default_value: ""
+  STYLE:
+    name: 纸张样式
+    description: paper 米白信纸 / sticky 黄色便利贴 / rose 粉色便签 / memo 备忘录白 / kraft 牛皮纸 / grid 方格纸 / chalk 黑板 / night 深蓝夜 / transparent 透明
+    default_value: paper
+    options:
+      - paper
+      - sticky
+      - rose
+      - memo
+      - kraft
+      - grid
+      - chalk
+      - night
+      - transparent
+  COLOR:
+    name: 自定义纸色
+    description: 十六进制颜色，如 #FFF2CC。留空用所选样式的默认纸色。
+    default_value: ""
+  INK:
+    name: 自定义文字颜色
+    description: 十六进制颜色，如 #333333。留空用样式默认。
+    default_value: ""
+  ACCENT:
+    name: 自定义标题颜色
+    description: 标题和装饰（胶带/图钉/回形针）用色。留空用样式默认。
+    default_value: ""
+  RULE:
+    name: 自定义横线颜色
+    description: 十六进制颜色。留空用样式默认。
+    default_value: ""
+  DECOR:
+    name: 顶部装饰
+    description: auto 跟随样式 / tape 胶带 / pin 图钉 / clip 回形针 / none 不要
+    default_value: auto
+    options:
+      - auto
+      - tape
+      - pin
+      - clip
+      - none
+  RULED:
+    name: 横线纸线条
+    description: auto 跟随样式（信纸/牛皮纸默认有）/ on 强制有 / off 强制无
+    default_value: auto
+    options:
+      - auto
+      - on
+      - off
+  FONT:
+    name: 字体
+    description: system 系统默认 / kaiti 楷体 / songti 宋体 / pingfang 苹方 / mono 等宽
+    default_value: system
+    options:
+      - system
+      - kaiti
+      - songti
+      - pingfang
+      - mono
+  SIZE:
+    name: 正文字号（0 = 自动）
+    description: 自动会按组件尺寸和行数缩放，最小 10pt。想固定就填 12~16。
+    default_value: "0"
+  ALIGN:
+    name: 文字对齐
+    default_value: left
+    options:
+      - left
+      - center
+      - right
+  LINES_S:
+    name: 小号最多显示几行
+    description: auto = 按画布自动放得下多少显示多少；填数字则硬性截断。
+    default_value: auto
+  LINES_M:
+    name: 中号最多显示几行
+    default_value: auto
+  LINES_L:
+    name: 大号最多显示几行
+    default_value: auto
+  REFRESH_HOURS:
+    name: 刷新间隔（小时）
+    description: 只是刷新提示，实际由 iOS 调度。页脚含日期时会在次日凌晨自动刷新。
+    default_value: "6"
+  URL:
+    name: 点击打开的链接
+    description: 点击组件跳转的网址或 App scheme，留空则点击无反应。
+    default_value: ""
+
+dns: {}
+
+scriptings:
+  - generic:
+      name: sticky-note
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note/sticky-note.js
+      timeout: 10
+      env:
+        TITLE: "{{{TITLE}}}"
+        LINE1: "{{{LINE1}}}"
+        LINE2: "{{{LINE2}}}"
+        LINE3: "{{{LINE3}}}"
+        LINE4: "{{{LINE4}}}"
+        LINE5: "{{{LINE5}}}"
+        LINE6: "{{{LINE6}}}"
+        LINE7: "{{{LINE7}}}"
+        LINE8: "{{{LINE8}}}"
+        NOTE: "{{{NOTE}}}"
+        FOOTER: "{{{FOOTER}}}"
+        BULLET: "{{{BULLET}}}"
+        STYLE: "{{{STYLE}}}"
+        COLOR: "{{{COLOR}}}"
+        INK: "{{{INK}}}"
+        ACCENT: "{{{ACCENT}}}"
+        RULE: "{{{RULE}}}"
+        DECOR: "{{{DECOR}}}"
+        RULED: "{{{RULED}}}"
+        FONT: "{{{FONT}}}"
+        SIZE: "{{{SIZE}}}"
+        ALIGN: "{{{ALIGN}}}"
+        LINES_S: "{{{LINES_S}}}"
+        LINES_M: "{{{LINES_M}}}"
+        LINES_L: "{{{LINES_L}}}"
+        REFRESH_HOURS: "{{{REFRESH_HOURS}}}"
+        URL: "{{{URL}}}"
+
+widgets:
+  - name: 便签
+    script_name: sticky-note
