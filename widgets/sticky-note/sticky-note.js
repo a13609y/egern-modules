@@ -12,10 +12,10 @@
 const VERSION = '1.0.0';
 
 const FAMILY = {
-  systemSmall: { w: 155, h: 155, pad: 12, title: 15, body: 12, foot: 10 },
-  systemMedium: { w: 329, h: 155, pad: 14, title: 16, body: 13, foot: 11 },
-  systemLarge: { w: 329, h: 345, pad: 18, title: 19, body: 14, foot: 12 },
-  systemExtraLarge: { w: 345, h: 345, pad: 18, title: 19, body: 14, foot: 12 }
+  systemSmall: { w: 155, h: 155, pad: 12, title: 17, body: 15, foot: 11 },
+  systemMedium: { w: 329, h: 155, pad: 14, title: 17, body: 15, foot: 11 },
+  systemLarge: { w: 329, h: 345, pad: 18, title: 21, body: 15, foot: 12 },
+  systemExtraLarge: { w: 345, h: 345, pad: 18, title: 21, body: 15, foot: 12 }
 };
 
 // ── 样式预设 ─────────────────────────────────────────────
@@ -169,7 +169,7 @@ function readConfig(env) {
     decor: decorMode === 'auto' ? st.decor : decorMode,
     font: FONTS[pick(env.FONT, Object.keys(FONTS), 'system')] || null,
     align: pick(env.ALIGN, ['left', 'center', 'right'], 'left'),
-    size: Math.max(0, num(env.SIZE, 0)),
+    size: Math.max(0, num(env.SIZE, 15)),
     bullet: trim(env.BULLET),
     title: trim(env.TITLE),
     footer: trim(env.FOOTER),
@@ -207,23 +207,25 @@ function limitFor(family, env) {
 // 优先级：把用户写的所有行都放下 → 放不下就逐档缩字（最小 9pt）→ 还放不下才截断
 function computeLayout(canvas, cfg, lineCount) {
   const f = FAMILY[canvas.family] || FAMILY.systemMedium;
-  const decorH = cfg.decor !== 'none' ? 10 : 0;
+  const decorH = cfg.decor !== 'none' ? 4 : 0;
   const padTop = f.pad + decorH;
   const padBottom = f.pad;
   const availH = canvas.h - padTop - padBottom;
   const hasTitle = !!cfg.title;
   const hasFoot = !!cfg.footer;
-  const start = cfg.size > 0 ? cfg.size : f.body;
+  const fixed = cfg.size > 0;                     // 填了字号就固定，不自动缩
+  const start = fixed ? cfg.size : f.body;
+  const floor = fixed ? start : 10;               // 0 = 自动：逐档缩到放得下，最小 10pt
 
   let pick2 = null;
-  for (let s = start; s >= 10; s--) {
-    const titleSize = Math.max(10, Math.round(s * 1.3));
-    const footSize = Math.max(8, Math.round(s * 0.78));
+  for (let s = start; s >= floor; s--) {
+    const titleSize = Math.max(12, Math.round(s * 1.18));
+    const footSize = Math.max(9, Math.round(s * 0.75));
     const titleH = hasTitle ? Math.round(titleSize * 1.35) : 0;
-    const footH = hasFoot ? Math.round(footSize * 1.35) : 0;
-    const gapT = hasTitle ? 6 : 0;
-    const gapF = hasFoot ? 6 : 0;
-    const lineH = Math.round(s * 1.45);
+    const footH = hasFoot ? Math.round(footSize * 1.4) : 0;
+    const gapT = hasTitle ? 5 : 0;
+    const gapF = hasFoot ? 5 : 0;
+    const lineH = Math.round(s * 1.4);
     const bodyH = availH - titleH - gapT - footH - gapF;
     const fit = Math.max(0, Math.floor(bodyH / lineH));
     pick2 = { bodySize: s, titleSize: titleSize, footSize: footSize, titleH: titleH, footH: footH, gapT: gapT, gapF: gapF, lineH: lineH, bodyH: bodyH, fit: fit };
