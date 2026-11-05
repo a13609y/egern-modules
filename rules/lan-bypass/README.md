@@ -25,7 +25,7 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/lan-bypass/la
 | `fe80::/10` | IPv6 链路本地，带接口作用域，跨接口必失败（NDP 因此断掉） |
 | `169.254.0.0/16` | IPv4 链路本地，无 DHCP 时的自动地址 |
 | `fc00::/7`、`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16` | 内网单播：NAS、路由器管理页、打印机、内网系统 |
-| `100.64.0.0/10` | CGNAT：Tailscale / ZeroTier 组网 |
+| `100.64.0.0/10` | **故意不放开**：若在 Egern 里用 Tailscale 代理访问 tailnet 主机，放开会让目的地址直接走物理链路，详见文末 |
 | `127.0.0.0/8`、`::1/128` | 环回 |
 
 组播、广播、链路本地**不产生「域名 + 端口」意义上的连接判定**，`rules` 里的 `ip_cidr → DIRECT` 兜不住，只能在这一层豁免。bypass 的语义是"不解析、不劫持 DNS、不做 Fake IP"，最接近"没开 VPN"；`DIRECT` 规则仍由 Egern 建连、走 Egern 的 DNS。
@@ -70,7 +70,7 @@ Fake IP 会把这些服务解析到一个假地址：联机匹配失败、CDN �
 
 **Fries 那份缺的东西（已补）：**
 
-- 少 `224.0.0.0/4`、`255.255.255.255/32`、`169.254.0.0/16`、`fc00::/7`、`ff00::/8`、`100.64.0.0/10`、`*.home.arpa`、`*.lan`、`*.crashlytics.com` —— 组播和链路本地这几条是最影响局域网可用的。
+- 少 `224.0.0.0/4`、`255.255.255.255/32`、`169.254.0.0/16`、`fc00::/7`、`ff00::/8`、`*.home.arpa`、`*.lan`、`*.crashlytics.com` —— 组播和链路本地这几条是最影响局域网可用的。
 - `skip-proxy` 里有 `193.168.0.1/32`，明显是 `192.168.0.1` 的笔误，未收录。
 - `always-real-ip` 缺 Netflix 起播域名（Fake IP 下 Netflix 会报错）、`stun.syncthing.net`、`*.battle.net` / `*.battlenet.com`（只有 `logon` 子域）、`*.sslip.io` / `*.nip.io`（本地开发）。
 - MITM 排除缺 iTunes 播放域名（`play*`），补上了。
@@ -87,3 +87,25 @@ Fake IP 会把这些服务解析到一个假地址：联机匹配失败、CDN �
 
 - 命中 `bypass_tunnel_proxy` 的连接**完全脱离管控**（规则、脚本、抓包、去广告都不生效），别往里塞自己还想管的公网域名。
 - 只想"直连但仍受 Egern 管"→ 用主配置 `rules` 的 `ip_cidr → DIRECT`（带 `no_resolve: true`），不要加到这里。
+
+## 用 Tailscale / ZeroTier 时
+
+Egern 把 Tailscale 当作一种**代理类型**（工具 → 代理 → 新增 → 类型 Tailscale），它是在隧道内部建一条 userspace WireGuard，把一个节点或出口节点当作上游。因此：
+
+- 模块**不会**拦截、也不会影响 Egern 自己连控制服务器 / DERP 的流量（那是 Egern 自身的出站连接，不经隧道捕获）。
+- 模块里刻意**没有**放 `100.64.0.0/10`：如果放进去，目标地址是 tailnet 主机的连接会直接走物理链路、根本不进规则，Tailscale 策略永远轮不到它。
+- 反过来，如果你要用 Tailscale 节点当**出口**（exit node，所有流量从它出去），目的地址都是公网 IP，放不放那条都不影响；但一旦你哪天想直连 tailnet 里的机器就会踩坑，所以保持不放开更稳。
+
+想访问 tailnet 主机，在**主配置**里把这段指给 Tailscale 策略（策略名换成你自己的）：
+
+```yaml
+rules:
+  - ip_cidr:
+      match: 100.64.0.0/10
+      policy: Tailscale
+  - ip_cidr6:
+      match: fd7a:115c:a1e0::/48
+      policy: Tailscale
+```
+
+ZeroTier 同理（`fd00::/8` 里的网段按你实际分配填）。
