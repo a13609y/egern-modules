@@ -13,7 +13,7 @@ widgets/            小组件类模块（generic 脚本 + widgets 声明）
 ├── sticky-note/     便签（文字自定义 + 9 种纸张样式）
 ├── ...
 rules/              规则 / URL 重写 / MITM / http_response 类模块
-├── lan-bypass/     局域网直连（私网段 / 组播 / 链路本地 / 门户检测）
+├── lan-bypass/     通用增强（绕过隧道 + 真实 IP + MITM 排除）
 ├── coolapk/        酷安去广告（自动跟随上游 zirawell/R-Store）
 ├── pinterest/      Pinterest 去广告（信息流 / 搜索 / 相关推荐推广 Pin）
 scripts/            独立脚本（抓包、签到、通知等）
@@ -30,7 +30,7 @@ docs/               说明与踩坑记录
 | [全国实时油价](widgets/oil-price/README.md) | 92/95/98/柴油油价小组件，支持调价趋势，小/中/大号自适应 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/oil-price/oil-price.yaml` |
 | [节日倒数](widgets/holiday-countdown/README.md) | 距离下个节日还有几天，内置 2024–2050 农历与节气表，按画布自动排版 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/holiday-countdown/holiday-countdown.yaml` |
 | [便签](widgets/sticky-note/README.md) | 桌面便签，文字自己填（标题 + 8 行 + 页脚），9 种纸张样式、颜色/装饰/横线/字体/对齐可调 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note/sticky-note.yaml` |
-| [局域网直连](rules/lan-bypass/README.md) | 私有网段 / 组播 / 链路本地 / 本地域名不走隧道，修复局域网设备、投屏打印、内网访问与门户登录页 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/lan-bypass/lan-bypass.yaml` |
+| [通用增强](rules/lan-bypass/README.md) | 私有网段/组播/链路本地不走隧道 + 门户检测/联机/音乐版权等用真实 IP + 证书钉扎域名排除 MITM | `https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/lan-bypass/lan-bypass.yaml` |
 | [酷安去广告](rules/coolapk/README.md) | 去酷安开屏 / 首页信息流 / 评论 / 商品推广广告，规则与脚本自动跟随上游 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/coolapk/coolapk.yaml` |
 | [Pinterest 去广告](rules/pinterest/README.md) | 去 Pinterest 信息流、搜索、相关推荐里的推广 Pin，拦广告与点击追踪域名 | `https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/pinterest/pinterest.yaml` |
 
