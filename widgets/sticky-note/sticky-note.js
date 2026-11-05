@@ -210,7 +210,7 @@ function limitFor(family, env) {
 
 // ── 排版计算 ─────────────────────────────────────────────
 // 优先级：把用户写的所有行都放下 → 放不下就逐档缩字（最小 9pt）→ 还放不下才截断
-function computeLayout(canvas, cfg, lineCount) {
+function computeLayout(canvas, cfg, lineCount, cap) {
   const f = FAMILY[canvas.family] || FAMILY.systemMedium;
   const decorH = cfg.decor !== 'none' ? 6 : 0;
   const padTop = (f.padV || f.pad) + decorH;
@@ -225,16 +225,20 @@ function computeLayout(canvas, cfg, lineCount) {
   const footH = hasFoot ? Math.round(footSize * 1.4) : 0;
   const gapT = hasTitle ? 5 : 0;
   const gapF = hasFoot ? 5 : 0;
-  const lineH = Math.round(s * 1.32);
+  const baseLineH = Math.round(s * 1.32);
   const bodyH = availH - titleH - gapT - footH - gapF;
-  const fit = Math.max(0, Math.floor(bodyH / lineH));
+  const fit = Math.max(0, Math.floor(bodyH / baseLineH));
+  const shownN = Math.max(1, Math.min(fit, lineCount, cap > 0 ? cap : lineCount));
+  // 行数少就把行距撑开铺满，避免下半屏空着（上限 2.2 倍字号，太散反而难看）
+  const maxLineH = Math.round(s * (canvas.family === 'systemLarge' ? 2.8 : 2.2));
+  const lineH = shownN >= 2 ? Math.min(maxLineH, Math.max(baseLineH, Math.floor(bodyH / shownN))) : baseLineH;
   const pick2 = { bodySize: s, titleSize: titleSize, footSize: footSize, titleH: titleH, footH: footH, gapT: gapT, gapF: gapF, lineH: lineH, bodyH: bodyH, fit: fit };
   pick2.padTop = padTop;
   pick2.padBottom = padBottom;
   pick2.padL = f.pad;
   pick2.padR = f.pad;
   pick2.contentW = canvas.w - f.pad * 2;
-  pick2.shown = Math.min(pick2.fit, lineCount);
+  pick2.shown = Math.max(0, Math.min(pick2.fit, lineCount, cap > 0 ? cap : lineCount));
   return pick2;
 }
 
@@ -315,9 +319,9 @@ function wrapAlign(node, align) {
 }
 
 function render(canvas, cfg, lines, now, cap) {
-  const L = computeLayout(canvas, cfg, lines.length);
+  const L = computeLayout(canvas, cfg, lines.length, cap);
   if (cap > 0) L.shown = Math.min(L.shown, cap);
-  const children = [];
+  const children = [{ type: 'spacer' }];
 
   if (cfg.title) {
     children.push(rowBox(L.contentW, alignChildren({
@@ -333,7 +337,6 @@ function render(canvas, cfg, lines, now, cap) {
   }
 
   if (lines.length === 0) {
-    children.push({ type: 'spacer' });
     children.push(rowBox(L.contentW, alignChildren({
       type: 'text',
       text: '✍️ 在模块设置里写点什么',
