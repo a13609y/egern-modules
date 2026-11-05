@@ -5,6 +5,20 @@ homepage: https://github.com/a13609y/egern-modules/tree/main/rules/lan-bypass
 manual: https://github.com/a13609y/egern-modules/blob/main/rules/lan-bypass/README.md
 icon: network
 
+compat_arguments:
+  TAILSCALE_CIDR: "0.0.0.0/32"
+
+env_schema:
+  TAILSCALE_CIDR:
+    name: 兼容 Tailscale / ZeroTier
+    description: >-
+      默认「不绕过」：100.64.0.0/10 照常由 Egern 处理，tailnet 主机可以正常走 Tailscale 策略
+      （0.0.0.0/32 只是空占位，不匹配任何真实流量）。改成 100.64.0.0/10 则整段直连、不进隧道，
+      只有在不用组网、又想让运营商 CGNAT 地址完全脱管时才需要。
+    options:
+      - "0.0.0.0/32"
+      - "100.64.0.0/10"
+
 # ============================================================
 # 1. 绕过隧道（连接层豁免）
 # 命中这里的目标不进入隧道：不解析 HTTP、不劫持 DNS、不做 Fake IP，
@@ -26,9 +40,12 @@ bypass_tunnel_proxy:
   - "192.168.122.1/32"   # QEMU/libvirt 默认网关
   - "169.254.0.0/16"     # 链路本地（无 DHCP 时自动分配）
   - "127.0.0.0/8"
-  # 注意：100.64.0.0/10（CGNAT）故意不放开。
-  # 若在 Egern 里用 Tailscale / ZeroTier 代理访问 tailnet 主机，放开会让这些目的地址
-  # 直接走物理链路、永远轮不到 Tailscale 策略；不用组网时可自行加回来。
+
+  # —— CGNAT：Tailscale / ZeroTier ——
+  # 本行由模块设置里的「兼容 Tailscale / ZeroTier」控制：
+  #   默认 0.0.0.0/32 = 不绕过，tailnet 主机可正常走策略；
+  #   改成 100.64.0.0/10 = 整段直连、不进隧道。
+  - "{{{TAILSCALE_CIDR}}}"
   - "17.0.0.0/8"         # Apple 自有段（部分服务对代理敏感）
 
   # —— IPv4 组播 / 广播（mDNS、SSDP、DHCP、NetBIOS）——
