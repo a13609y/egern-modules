@@ -2,7 +2,7 @@ name: 节日倒数
 description: 距离下一个假期还有多少天 · 超大天数 + 节日胶囊 + 底部七格假期条 · 另有九宫格排版可切换 · 数据内置到 2050 年，不联网
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules/tree/main/widgets/holiday-countdown
-icon: calendar
+icon: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/holiday-countdown/icon.png
 
 # ── 模块参数默认值（用户可在「模块设置」里覆盖）────────────────
 compat_arguments:

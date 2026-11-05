@@ -2,7 +2,7 @@ name: 便签
 description: 桌面便签小组件 · 9 种纸张样式（信纸/便利贴/方格纸/牛皮纸/黑板/透明…）· 文字自己填，留空即不显示
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules
-icon: note.text
+icon: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note/icon.png
 
 # ── 模块参数默认值（用户可在「模块设置」里逐项覆盖）──────────────
 compat_arguments:
