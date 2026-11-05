@@ -16,6 +16,8 @@ compat_arguments:
   LINE7: ""
   LINE8: ""
   STYLE: paper
+  DECOR: auto
+  RULED: auto
   SIZE: "15"
   ALIGN: center
   LOCK_SIZE: "15"
@@ -70,6 +72,24 @@ env_schema:
       - chalk
       - night
       - transparent
+  DECOR:
+    name: 顶部装饰（强制）
+    description: auto 跟随纸张样式 / tape 强制胶带 / pin 强制图钉 / clip 强制别针 / none 强制不要
+    default_value: auto
+    options:
+      - auto
+      - tape
+      - pin
+      - clip
+      - none
+  RULED:
+    name: 下划线（强制）
+    description: auto 跟随纸张样式 / on 每一行都加下划线（标题不加）/ off 全部不要
+    default_value: auto
+    options:
+      - auto
+      - on
+      - off
   SIZE:
     name: 字号
     description: 默认 15，字号固定不变；一行写太长会自动省略，不会缩字。
@@ -104,6 +124,8 @@ scriptings:
         LINE7: "{{{LINE7}}}"
         LINE8: "{{{LINE8}}}"
         STYLE: "{{{STYLE}}}"
+        DECOR: "{{{DECOR}}}"
+        RULED: "{{{RULED}}}"
         SIZE: "{{{SIZE}}}"
         ALIGN: "{{{ALIGN}}}"
         LOCK_SIZE: "{{{LOCK_SIZE}}}"

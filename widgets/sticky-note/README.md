@@ -30,6 +30,8 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `标题` | 第一行，加粗 | `本周待办` |
 | `第 1 行` ~ `第 8 行` | 正文，**留空就不显示** | `买牛奶和鸡蛋` |
 | `纸张样式` | 9 选 1 | `paper` / `sticky` / `grid` … |
+| `顶部装饰` | 强制统一装饰：`auto` 跟随样式 / `tape` 胶带 / `pin` 图钉 / `clip` 别针 / `none` 不要 | `auto` |
+| `下划线` | `auto` 跟随样式 / `on` 每一行都加（标题不加）/ `off` 全部不要 | `auto` |
 | `字号` | 默认 `15`，固定不变 | `15` |
 | `对齐` | `center` 标题和正文一起居中（默认）/ `left` 全部靠左 | `center` |
 | `锁屏字号` | 锁屏组件单独用的字号，9~32 | `15` |
@@ -95,8 +97,6 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `NOTE` | 多行正文（真换行），填了就忽略 `LINE1~8` | 空 |
 | `BULLET` | 每行统一前缀，如 `•` `☐` | 空 |
 | `COLOR` `INK` `ACCENT` `RULE` | 自定义纸色 / 字色 / 标题色 / 横线色 | 跟随样式 |
-| `DECOR` | `auto` / `tape` / `pin` / `clip` / `none` | 跟随样式 |
-| `RULED` | `auto` / `on` / `off` | 跟随样式 |
 | `FONT` | `system` / `kaiti` 楷体 / `songti` 宋体 / `pingfang` 苹方 / `mono` | `system` |
 | `ALIGN` | `left` / `center` / `right` | `left` |
 | `LINES_S` `LINES_M` `LINES_L` | 各尺寸显示行数上限 | 4 / 4 / 8 |

@@ -166,7 +166,15 @@ function readConfig(env) {
     paper: trim(env.COLOR) || st.paper,
     ink: trim(env.INK) || st.ink,
     accent: trim(env.ACCENT) || st.accent,
-    rule: hexToRgba(trim(env.RULE) || st.rule, st.ruleAlpha),
+    rule: (function () {
+      const custom = trim(env.RULE);
+      if (custom) return hexToRgba(custom, 1);
+      if (styleKey === 'transparent') {
+        // 透明样式没有纸色，白线看不见，改用字色淡淡一条
+        return typeof st.ink === 'string' ? hexToRgba(st.ink, 0.15) : 'rgba(128,128,128,0.28)';
+      }
+      return hexToRgba(st.rule, st.ruleAlpha);
+    })(),
     ruled: ruledMode === 'auto' ? !!st.ruled : ruledMode === 'on',
     grid: !!st.grid,
     decor: decorMode === 'auto' ? st.decor : decorMode,
@@ -212,7 +220,7 @@ function limitFor(family, env) {
 // 优先级：把用户写的所有行都放下 → 放不下就逐档缩字（最小 9pt）→ 还放不下才截断
 function computeLayout(canvas, cfg, lineCount, cap) {
   const f = FAMILY[canvas.family] || FAMILY.systemMedium;
-  const decorH = cfg.decor !== 'none' ? 6 : 0;
+    const decorH = ({ tape: 8, pin: 12, clip: 24 })[cfg.decor] || 0;
   const padTop = (f.padV || f.pad) + decorH;
   const padBottom = f.padV || f.pad;
   const availH = canvas.h - padTop - padBottom;
@@ -256,9 +264,9 @@ function decorSvg(kind, w, accent) {
       "<circle cx='" + (cx - 2) + "' cy='6' r='2.4' fill='#FFFFFF' fill-opacity='0.45'/>";
   }
   if (kind === 'clip') {
-    const x = cx - 7;
-    return "<path d='M " + x + " 6 v 20 a 7 7 0 0 0 14 0 V 11 a 4.5 4.5 0 0 0 -9 0 V 24' " +
-      "fill='none' stroke='" + accent + "' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/>";
+    const x = cx - 5.5;
+    return "<path d='M " + x + " 4 v 12 a 5.5 5.5 0 0 0 11 0 V 8 a 3.4 3.4 0 0 0 -6.8 0 V 17' " +
+      "fill='none' stroke='" + accent + "' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/>";
   }
   return '';
 }
