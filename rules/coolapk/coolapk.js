@@ -1,7 +1,7 @@
 // ⚠️ 本文件由 rules/coolapk/sync.py 自动生成，请勿手动修改。
-// 上游脚本 : https://raw.githubusercontent.com/alloflights/shadowrocket-rules/main/modules/scripts/coolapk.js  (v3.3.13)
+// 上游脚本 : https://raw.githubusercontent.com/alloflights/shadowrocket-rules/main/modules/scripts/coolapk.js  (v3.3.15)
 // 上游 hash : 9eaa3600f592
-// 生成时间 : 2026-11-04 06:13 UTC
+// 生成时间 : 2026-11-06 11:08 UTC
 //
 // 上游是 Surge / Shadowrocket 写法（$request / $response / $done），这里套一层 Egern 兼容壳，
 // 同一个文件被 http_request 和 http_response 两条声明共用：
