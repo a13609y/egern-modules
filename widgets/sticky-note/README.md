@@ -34,7 +34,8 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `下划线` | `auto` 跟随样式 / `on` 每一行都加（标题不加）/ `off` 全部不要 | `auto` |
 | `今日日期印章` | `on` 右下角盖今天的日期章（默认）/ `off` 关掉 | `on` |
 | `印章颜色` | `auto` 跟随纸张样式，或直接填 `#AD292E` | `auto` |
-| `印章大小` | 印章宽度占组件宽度的百分比，可填 15~100 | `46` |
+| `印章位置` | `top-right` 右上角（默认）/ `top-left` / `bottom-right` / `bottom-left` | `top-right` |
+| `印章大小` | 印章宽度占组件宽度的百分比，可填 15~100 | `30` |
 | `字号` | 默认 `15`，固定不变 | `15` |
 | `对齐` | `center` 标题和正文一起居中（默认）/ `left` 全部靠左 | `center` |
 | `锁屏字号` | 锁屏组件单独用的字号，9~32 | `15` |

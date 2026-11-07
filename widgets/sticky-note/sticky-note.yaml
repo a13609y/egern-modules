@@ -19,8 +19,9 @@ compat_arguments:
   DECOR: auto
   RULED: auto
   STAMP: "on"
+  STAMP_POS: top-right
+  STAMP_SIZE: "30"
   STAMP_COLOR: auto
-  STAMP_SIZE: "46"
   SIZE: "15"
   ALIGN: center
   LOCK_SIZE: "15"
@@ -100,14 +101,23 @@ env_schema:
     options:
       - "on"
       - "off"
+  STAMP_POS:
+    name: 印章位置
+    description: top-right 右上角（默认）/ top-left 左上角 / bottom-right 右下角 / bottom-left 左下角
+    default_value: top-right
+    options:
+      - top-right
+      - top-left
+      - bottom-right
+      - bottom-left
+  STAMP_SIZE:
+    name: 印章大小
+    description: 印章宽度占组件宽度的百分比，可填 15~100。默认 30，调小就盖得小一点。
+    default_value: "30"
   STAMP_COLOR:
     name: 印章颜色
     description: auto 跟随纸张样式（信纸暗红、黑板薄荷绿…）/ 也可以直接填 #AD292E
     default_value: auto
-  STAMP_SIZE:
-    name: 印章大小
-    description: 印章宽度占组件宽度的百分比，可填 15~100。默认 46，调小就盖得小一点。
-    default_value: "46"
   SIZE:
     name: 字号
     description: 默认 15，字号固定不变；一行写太长会自动省略，不会缩字。
@@ -145,8 +155,9 @@ scriptings:
         DECOR: "{{{DECOR}}}"
         RULED: "{{{RULED}}}"
         STAMP: "{{{STAMP}}}"
-        STAMP_COLOR: "{{{STAMP_COLOR}}}"
+        STAMP_POS: "{{{STAMP_POS}}}"
         STAMP_SIZE: "{{{STAMP_SIZE}}}"
+        STAMP_COLOR: "{{{STAMP_COLOR}}}"
         SIZE: "{{{SIZE}}}"
         ALIGN: "{{{ALIGN}}}"
         LOCK_SIZE: "{{{LOCK_SIZE}}}"

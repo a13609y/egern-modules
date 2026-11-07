@@ -188,7 +188,13 @@ function readConfig(env) {
     url: trim(env.URL),
     stamp: pick(env.STAMP, ['on', 'off'], 'on') === 'on',
     stampColor: trim(env.STAMP_COLOR),
-    stampSize: (function () { const v = num(env.STAMP_SIZE, 46); return v >= 15 && v <= 100 ? v : 46; })(),
+    stampSize: (function () { const v = num(env.STAMP_SIZE, 30); return v >= 15 && v <= 100 ? v : 30; })(),
+    stampPos: (function () {
+      const raw = trim(env.STAMP_POS).toLowerCase();
+      const alias = { '右上': 'top-right', '左上': 'top-left', '右下': 'bottom-right', '左下': 'bottom-left', tr: 'top-right', tl: 'top-left', br: 'bottom-right', bl: 'bottom-left' };
+      const v = alias[raw] || raw;
+      return ['top-right', 'top-left', 'bottom-right', 'bottom-left'].indexOf(v) >= 0 ? v : 'top-right';
+    })(),
     hours: Math.min(72, Math.max(0, num(env.REFRESH_HOURS, 6)))
   };
 }
@@ -320,7 +326,12 @@ function buildStamp(canvas, cfg, now, seed) {
   const sw = Math.max(40, Math.round(w * (cfg.stampSize / 100)));
   const sh = Math.round(sw * 260 / 600);
   const pad = Math.round(Math.min(w, h) * 0.04);
-  return stampGroup(w - sw - pad, h - sh - pad, sw, cfg, now, seed);
+  const pos = cfg.stampPos || 'top-right';
+  const right = pos.indexOf('right') >= 0;
+  const bottom = pos.indexOf('bottom') >= 0;
+  const x = right ? w - sw - pad : pad;
+  const y = bottom ? h - sh - pad : pad;
+  return stampGroup(x, y, sw, cfg, now, seed);
 }
 
 function buildStampLayer(canvas, cfg, now) {
