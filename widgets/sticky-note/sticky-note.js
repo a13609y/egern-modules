@@ -205,7 +205,7 @@ function readConfig(env) {
       const v = alias[raw] || raw;
       return ['top-right', 'top-left', 'bottom-right', 'bottom-left'].indexOf(v) >= 0 ? v : 'top-right';
     })(),
-    hours: (function () { const v = num(env.REFRESH_HOURS, 6); return v > 0 && v <= 168 ? v : 6; })()
+    hours: (function () { const v = num(env.REFRESH_HOURS, 5 / 60); return v > 0 && v <= 168 ? v : 5 / 60; })()
   };
 }
 
@@ -616,13 +616,9 @@ function render(canvas, cfg, lines, now, cap) {
 }
 
 function refreshAfter(cfg, now) {
+  // 短间隔不是为了「频繁重绘」，而是让 iOS 有下一次机会重建快照——
+  // 实际唤醒频率由 iOS 的每日预算决定（约 40~70 次/天），这里只是「请求」。
   const d = new Date(now.getTime());
-  // 日期章每天要换日期：直接约到次日 00:02，一天只唤醒一次
-  if (cfg.stamp) {
-    d.setHours(24, 2, 0, 0);
-    return d.toISOString();
-  }
-  // 没有日期章就是纯静态文字，按 REFRESH_HOURS（默认 6 小时）提示即可
   d.setTime(d.getTime() + Math.max(1, cfg.hours * 60) * 60 * 1000);
   return d.toISOString();
 }
