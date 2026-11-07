@@ -248,66 +248,48 @@ function buildItems(today, env) {
 // 生成三层圆环 Data URI（轨道 + 内虚线 + 进度弧 + 端点）
 // progress: 0~1，color: 进度弧颜色，size: 画布边长，centerIcon: 中心图标 SVG 字符串（可选）
 function makeRingSVG(progress, color, size, centerIcon) {
-  var r = size * 0.386;          // 进度轨道半径
+  var cx = size / 2, cy = size / 2;
+  var r  = size * 0.386;         // 进度轨道半径
   var ri = size * 0.295;         // 内虚线半径
   var ro = size * 0.466;         // 外装饰圈半径
-  var sw = size * 0.057;         // 进度弧线宽
-  var cx = size / 2, cy = size / 2;
+  var sw = Math.max(2, size * 0.057); // 进度弧线宽
   var circ = 2 * Math.PI * r;
   var dash = circ * Math.min(1, Math.max(0, progress));
-
-  // 终点坐标（进度弧末端的实心圆点）
   var angle = -Math.PI / 2 + 2 * Math.PI * progress;
   var ex = cx + r * Math.cos(angle);
   var ey = cy + r * Math.sin(angle);
 
-  var trackColor = color.indexOf('rgba') === 0
-    ? 'rgba(0,0,0,0.07)'
-    : 'rgba(0,0,0,0.07)';
-  var innerColor = 'rgba(0,0,0,0.045)';
-  var outerColor = 'rgba(0,0,0,0.04)';
-
-  // fest/红色主题时用同色系轨道
-  if (color === '#B83028' || color === '#CA3B32') {
-    trackColor = 'rgba(184,48,40,0.1)';
-    innerColor = 'rgba(184,48,40,0.07)';
-    outerColor = 'rgba(184,48,40,0.06)';
-  }
-  // 蓝色主题（周末）
-  if (color === '#1A5FA8' || color === '#185FA5') {
-    trackColor = 'rgba(26,95,168,0.1)';
-    innerColor = 'rgba(26,95,168,0.07)';
-    outerColor = 'rgba(26,95,168,0.06)';
-  }
-
-  var iconStr = centerIcon || '';
-
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '">'
-    // 外装饰圈
-    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + ro + '" fill="none" stroke="' + outerColor + '" stroke-width="1"/>'
-    // 轨道
-    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + trackColor + '" stroke-width="' + sw + '"/>'
-    // 内虚线
-    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + ri + '" fill="none" stroke="' + innerColor + '" stroke-width="1" stroke-dasharray="3 5"/>'
-    // 进度弧
-    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + sw + '"'
-    + ' stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" stroke-linecap="round"'
-    + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"/>'
-    // 起点淡点（12点位置）
-    + '<circle cx="' + cx + '" cy="' + (cy - r) + '" r="' + (sw * 0.5) + '" fill="' + color + '" opacity="0.18"/>'
-    // 进度终点实心圆（progress=0时不画，避免叠在起点上）
+  var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + size + ' ' + size + "'"
+    + " width='" + size + "' height='" + size + "'>"
+    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + ro + "' fill='none' stroke='" + color + "' stroke-opacity='0.10' stroke-width='1'/>"
+    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + r + "' fill='none' stroke='" + color + "' stroke-opacity='0.12' stroke-width='" + sw + "'/>"
+    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + ri + "' fill='none' stroke='" + color + "' stroke-opacity='0.10' stroke-width='1' stroke-dasharray='3 5'/>"
+    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + r + "' fill='none' stroke='" + color + "' stroke-width='" + sw + "'"
+    + " stroke-dasharray='" + dash.toFixed(1) + ' ' + circ.toFixed(1) + "' stroke-linecap='round'"
+    + " transform='rotate(-90 " + cx + ' ' + cy + ")'/>"
+    + "<circle cx='" + cx + "' cy='" + (cy - r) + "' r='" + (sw * 0.5) + "' fill='" + color + "' fill-opacity='0.18'/>"
     + (progress > 0.01
-      ? '<circle cx="' + ex.toFixed(1) + '" cy="' + ey.toFixed(1) + '" r="' + (sw * 0.78) + '" fill="' + color + '"/>'
+      ? "<circle cx='" + ex.toFixed(1) + "' cy='" + ey.toFixed(1) + "' r='" + (sw * 0.78) + "' fill='" + color + "'/>"
       : '')
-    // 完整圆时额外外圈强调
     + (progress >= 0.999
-      ? '<circle cx="' + cx + '" cy="' + cy + '" r="' + (ro + 1) + '" fill="none" stroke="' + color + '" stroke-width="1.5" opacity="0.2"/>'
+      ? "<circle cx='" + cx + "' cy='" + cy + "' r='" + (ro + 1) + "' fill='none' stroke='" + color + "' stroke-width='1.5' stroke-opacity='0.2'/>"
       : '')
-    // 中心图标
-    + iconStr
+    + (centerIcon || '')
     + '</svg>';
 
-  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+  // percent 编码：不依赖 btoa，任何运行时都能跑
+  return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/'/g, '%27');
+}
+
+// 以 (cx,cy) 为几何中心的正五角星（替代手写路径，不会偏）
+function starPath(cx, cy, R, opacity, color) {
+  var pts = [];
+  for (var i = 0; i < 10; i++) {
+    var rr = i % 2 === 0 ? R : R * 0.42;
+    var a = -Math.PI / 2 + i * Math.PI / 5;
+    pts.push((cx + rr * Math.cos(a)).toFixed(2) + ' ' + (cy + rr * Math.sin(a)).toFixed(2));
+  }
+  return "<path d='M" + pts.join('L') + "Z' fill='" + color + "' fill-opacity='" + opacity + "'/>";
 }
 
 // 计算圆环进度：用当年的节日周期作分母
@@ -413,25 +395,12 @@ function heroBlock(it, st, themeKey) {
   var progress = ringProgress(it, null);
   if (isToday) progress = 1;
 
-  // 中心图标 SVG 片段（内嵌到 SVG 字符串里）
-  var iconSize = st.ringSize * 0.25;
-  var ic = st.ringSize / 2 - iconSize / 2;
+  // 中心图标：用几何中心画，绝对不会偏
+  var midR = st.ringSize * 0.14;
   var centerIcon = isToday
-    ? '<path xmlns="http://www.w3.org/2000/svg" d="M' + (ic + iconSize*0.5) + ' ' + ic
-      + 'l' + (iconSize*0.23) + ' ' + (iconSize*0.5) + ' ' + (iconSize*0.52) + ' .08'
-      + 'l-' + (iconSize*0.4) + ' ' + (iconSize*0.37) + ' ' + (iconSize*0.09) + ' ' + (iconSize*0.52)
-      + 'l-' + (iconSize*0.44) + '-' + (iconSize*0.23)
-      + '-' + (iconSize*0.44) + ' ' + (iconSize*0.23)
-      + ' ' + (iconSize*0.09) + '-' + (iconSize*0.52)
-      + '-' + (iconSize*0.4) + '-' + (iconSize*0.37)
-      + ' ' + (iconSize*0.52) + '-.08z" fill="' + rColor + '" opacity="0.4"/>'
-    : '<rect xmlns="http://www.w3.org/2000/svg" x="' + ic + '" y="' + (ic + iconSize*0.1) + '"'
-      + ' width="' + iconSize + '" height="' + (iconSize*0.9) + '" rx="' + (iconSize*0.2) + '"'
-      + ' fill="none" stroke="rgba(0,0,0,0.13)" stroke-width="' + (iconSize*0.12) + '"/>'
-      + '<line xmlns="http://www.w3.org/2000/svg"'
-      + ' x1="' + ic + '" y1="' + (ic + iconSize*0.42) + '"'
-      + ' x2="' + (ic + iconSize) + '" y2="' + (ic + iconSize*0.42) + '"'
-      + ' stroke="rgba(0,0,0,0.1)" stroke-width="' + (iconSize*0.1) + '"/>';
+    ? starPath(st.ringSize / 2, st.ringSize / 2, midR, 0.42, rColor)
+    : "<circle cx='" + (st.ringSize / 2) + "' cy='" + (st.ringSize / 2) + "' r='" + midR * 0.8 + "'" +
+      " fill='none' stroke='" + rColor + "' stroke-opacity='0.22' stroke-width='" + (midR * 0.45).toFixed(1) + "'/>";
 
   var ringDataURI = makeRingSVG(progress, rColor, st.ringSize, centerIcon);
   var ringImg = mkImage(ringDataURI, st.ringSize, st.ringSize);
@@ -480,24 +449,24 @@ function cell(it, st) {
 var FAMILY_STYLE = {
   systemSmall: {
     pad: 10, cols: 2,
-    name: 9, day: 10, num: 30, unit: 10,
+    name: 9, day: 10, num: 22, unit: 9,
     title: 11, heroName: 12,
-    gapRow: 3, gapTop: 2, gapMid: 4,
-    ringSize: 68, gapHero: 8,
+    gapRow: 3, gapTop: 2, gapMid: 3,
+    ringSize: 44, gapHero: 8, heroH: 0,
   },
   systemMedium: {
-    pad: 14, cols: 3,
-    name: 9, day: 10, num: 36, unit: 12,
+    pad: 13, cols: 3,
+    name: 9, day: 10, num: 26, unit: 11,
     title: 11, heroName: 19,
-    gapRow: 4, gapTop: 2, gapMid: 6,
-    ringSize: 72, gapHero: 12,
+    gapRow: 4, gapTop: 2, gapMid: 4,
+    ringSize: 52, gapHero: 12, heroH: 62,
   },
   systemLarge: {
     pad: 15, cols: 3,
     name: 11, day: 13, num: 52, unit: 16,
     title: 13, heroName: 24,
     gapRow: 0, gapTop: 2, gapMid: 8,
-    ringSize: 88, gapHero: 14,
+    ringSize: 88, gapHero: 14, heroH: 96,
   },
 };
 
@@ -521,7 +490,7 @@ function canvasOf(ctx, family) {
 function estimateLayout(w, h, st, maxItems) {
   var innerH   = h - st.pad * 2;
   var headerH  = st.title * LINE + 4;
-  var heroH    = st.ringSize + st.gapMid;        // 圆环高度决定 hero 区高度
+  var heroH    = st.heroH || (st.ringSize + st.gapMid);   // hero 区高度（圆环 vs 右侧数字列取大者，已调好）
   var avail    = innerH - headerH - heroH - (st.gapTop || 0) - SAFETY;
   // 大号格子多一行副标题
   var cellLineH = (st === FAMILY_STYLE.systemLarge)
@@ -589,8 +558,11 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
 
   children.push(mkSpacer(st.gapMid));
 
-  // 底部 2 条
-  if (rest.length > 0) {
+  // 底部 2 条：先算一下加进去会不会超出画布，超了就不放
+  var canvasH = canvasOf(ctx, 'systemSmall').h;
+  var usedH = st.title * LINE + st.gapTop + st.ringSize + st.num * LINE + st.gapMid + SAFETY;
+  var cellH = st.name * LINE + st.day * LINE;
+  if (rest.length > 0 && usedH + cellH <= canvasH - st.pad * 2) {
     var rowKids = rest.map(function(it) { return cell(it, st); });
     while (rowKids.length < 2) rowKids.push(mkSpacer());
     children.push(mkRow(rowKids, 8));
