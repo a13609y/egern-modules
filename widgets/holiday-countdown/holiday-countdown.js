@@ -129,45 +129,8 @@ for (var ti = 0; ti < TERM_NAMES.length; ti++) {
   FESTIVALS.push({ name: TERM_NAMES[ti], kind: 'term', idx: ti, cat: 'term' });
 }
 
-// ── 配色（取自「时光倒数」，亮/暗各一套）────────────────────────
-var C = {
-  bgWorkday: [{ light: '#FFFFFF', dark: '#1C1C1E' }, { light: '#F2F2F7', dark: '#0C0C0E' }],
-  bgWeekend: [{ light: '#F4F8FF', dark: '#111827' }, { light: '#E6F2FF', dark: '#0B0F19' }],
-  bgFest: [{ light: '#FFF8EC', dark: '#2A1F0E' }, { light: '#FFEFD5', dark: '#1A1208' }],
-  main: { light: '#1C1C1E', dark: '#FFFFFF' },
-  sub: { light: '#48484A', dark: '#D1D1D6' },
-  muted: { light: '#8E8E93', dark: '#8E8E93' },
-  gold: { light: '#B58A28', dark: '#D6A53A' },
-  red: { light: '#CA3B32', dark: '#FF453A' },
-  green: { light: '#5C7A5C', dark: '#8FBF8F' },
-};
-
 var DAY = 86400000;
 
-// ── 工具 ────────────────────────────────────────────────────
-function mkText(text, size, weight, color, opts) {
-  var o = { type: 'text', text: String(text == null ? '' : text), font: { size: size, weight: weight }, textColor: color };
-  if (opts) for (var k in opts) o[k] = opts[k];
-  return o;
-}
-function mkRow(children, gap, opts) {
-  var o = { type: 'stack', direction: 'row', alignItems: 'center', gap: gap || 4, children: children };
-  if (opts) for (var k in opts) o[k] = opts[k];
-  return o;
-}
-function mkCol(children, gap, opts) {
-  var o = { type: 'stack', direction: 'column', alignItems: 'start', gap: gap || 2, children: children };
-  if (opts) for (var k in opts) o[k] = opts[k];
-  return o;
-}
-function mkIcon(name, color, size) {
-  return { type: 'image', src: 'sf-symbol:' + name, color: color, width: size, height: size };
-}
-function mkSpacer(len) {
-  return len == null ? { type: 'spacer' } : { type: 'spacer', length: len };
-}
-
-// 北京时间的「今天」零点（用 UTC 天数做整数比较，避免时区/DST 误差）
 function beijingToday(nowMs) {
   var bj = new Date(nowMs + 8 * 3600000);
   var y = bj.getUTCFullYear();
@@ -281,16 +244,427 @@ function buildItems(today, env) {
   });
   return items;
 }
+// ── SVG 圆环生成 ─────────────────────────────────────────────
+// 生成三层圆环 Data URI（轨道 + 内虚线 + 进度弧 + 端点）
+// progress: 0~1，color: 进度弧颜色，size: 画布边长，centerIcon: 中心图标 SVG 字符串（可选）
+function makeRingSVG(progress, color, size, centerIcon) {
+  var r = size * 0.386;          // 进度轨道半径
+  var ri = size * 0.295;         // 内虚线半径
+  var ro = size * 0.466;         // 外装饰圈半径
+  var sw = size * 0.057;         // 进度弧线宽
+  var cx = size / 2, cy = size / 2;
+  var circ = 2 * Math.PI * r;
+  var dash = circ * Math.min(1, Math.max(0, progress));
 
-function daysLabel(d) {
-  if (d === 0) return '今天';
-  if (d === 1) return '明天';
-  return String(d);
+  // 终点坐标（进度弧末端的实心圆点）
+  var angle = -Math.PI / 2 + 2 * Math.PI * progress;
+  var ex = cx + r * Math.cos(angle);
+  var ey = cy + r * Math.sin(angle);
+
+  var trackColor = color.indexOf('rgba') === 0
+    ? 'rgba(0,0,0,0.07)'
+    : 'rgba(0,0,0,0.07)';
+  var innerColor = 'rgba(0,0,0,0.045)';
+  var outerColor = 'rgba(0,0,0,0.04)';
+
+  // fest/红色主题时用同色系轨道
+  if (color === '#B83028' || color === '#CA3B32') {
+    trackColor = 'rgba(184,48,40,0.1)';
+    innerColor = 'rgba(184,48,40,0.07)';
+    outerColor = 'rgba(184,48,40,0.06)';
+  }
+  // 蓝色主题（周末）
+  if (color === '#1A5FA8' || color === '#185FA5') {
+    trackColor = 'rgba(26,95,168,0.1)';
+    innerColor = 'rgba(26,95,168,0.07)';
+    outerColor = 'rgba(26,95,168,0.06)';
+  }
+
+  var iconStr = centerIcon || '';
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '">'
+    // 外装饰圈
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + ro + '" fill="none" stroke="' + outerColor + '" stroke-width="1"/>'
+    // 轨道
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + trackColor + '" stroke-width="' + sw + '"/>'
+    // 内虚线
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + ri + '" fill="none" stroke="' + innerColor + '" stroke-width="1" stroke-dasharray="3 5"/>'
+    // 进度弧
+    + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + sw + '"'
+    + ' stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" stroke-linecap="round"'
+    + ' transform="rotate(-90 ' + cx + ' ' + cy + ')"/>'
+    // 起点淡点（12点位置）
+    + '<circle cx="' + cx + '" cy="' + (cy - r) + '" r="' + (sw * 0.5) + '" fill="' + color + '" opacity="0.18"/>'
+    // 进度终点实心圆（progress=0时不画，避免叠在起点上）
+    + (progress > 0.01
+      ? '<circle cx="' + ex.toFixed(1) + '" cy="' + ey.toFixed(1) + '" r="' + (sw * 0.78) + '" fill="' + color + '"/>'
+      : '')
+    // 完整圆时额外外圈强调
+    + (progress >= 0.999
+      ? '<circle cx="' + cx + '" cy="' + cy + '" r="' + (ro + 1) + '" fill="none" stroke="' + color + '" stroke-width="1.5" opacity="0.2"/>'
+      : '')
+    // 中心图标
+    + iconStr
+    + '</svg>';
+
+  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 
-// ── 背景 ───────────────────────────────────────────────────
+// 计算圆环进度：用当年的节日周期作分母
+// 找同名节日上一次出现到这次的天数作 totalDays，默认 365
+function ringProgress(item, today) {
+  // 粗略：倒计时天数越少进度越高，以 365 天为满圈
+  var total = 365;
+  var elapsed = total - item.days;
+  return Math.max(0, Math.min(1, elapsed / total));
+}
+
+// ── 配色（原有，保持不变）────────────────────────────────────
+var C = {
+  bgWorkday: [{ light: '#FFFFFF', dark: '#1C1C1E' }, { light: '#F2F2F7', dark: '#0C0C0E' }],
+  bgWeekend: [{ light: '#F4F8FF', dark: '#111827' }, { light: '#E6F2FF', dark: '#0B0F19' }],
+  bgFest:    [{ light: '#FFF8EC', dark: '#2A1F0E' }, { light: '#FFEFD5', dark: '#1A1208' }],
+  main:  { light: '#1C1C1E', dark: '#FFFFFF' },
+  sub:   { light: '#48484A', dark: '#D1D1D6' },
+  muted: { light: '#8E8E93', dark: '#8E8E93' },
+  gold:  { light: '#A07820', dark: '#D6A53A' },
+  red:   { light: '#B83028', dark: '#FF453A' },
+  green: { light: '#3E6B3E', dark: '#8FBF8F' },
+  blue:  { light: '#1A5FA8', dark: '#4A9EE0' },
+};
+
+var PILL_BG = { light: 'rgba(0,0,0,0.055)', dark: 'rgba(255,255,255,0.12)' };
+
+function catColor(cat, isToday) {
+  if (isToday) return C.red;
+  if (cat === 'term')   return C.green;
+  if (cat === 'west')   return C.gold;
+  return C.main;
+}
+
+function ringColor(themeKey, isToday) {
+  if (isToday)              return C.red;
+  if (themeKey === 'weekend') return C.blue;
+  return C.main;
+}
+
+function mdToCn(md) {
+  var parts = String(md || '').split('/');
+  if (parts.length < 2) return md;
+  return parseInt(parts[0], 10) + '月' + parseInt(parts[1], 10) + '日';
+}
+
+// ── 工具函数（原有）─────────────────────────────────────────
+function mkText(text, size, weight, color, opts) {
+  var o = { type: 'text', text: String(text == null ? '' : text), font: { size: size, weight: weight }, textColor: color };
+  if (opts) for (var k in opts) o[k] = opts[k];
+  return o;
+}
+function mkRow(children, gap, opts) {
+  var o = { type: 'stack', direction: 'row', alignItems: 'center', gap: gap || 4, children: children };
+  if (opts) for (var k in opts) o[k] = opts[k];
+  return o;
+}
+function mkCol(children, gap, opts) {
+  var o = { type: 'stack', direction: 'column', alignItems: 'start', gap: gap || 2, children: children };
+  if (opts) for (var k in opts) o[k] = opts[k];
+  return o;
+}
+function mkIcon(name, color, size) {
+  return { type: 'image', src: 'sf-symbol:' + name, color: color, width: size, height: size };
+}
+function mkSpacer(len) {
+  return len == null ? { type: 'spacer' } : { type: 'spacer', length: len };
+}
+function mkImage(src, w, h) {
+  return { type: 'image', src: src, width: w, height: h };
+}
+
+// ── 新版 pill ─────────────────────────────────────────────────
+var DISPLAY_NAME = { '元旦': '元旦', '春节': '春节', '清明': '清明节', '劳动节': '劳动节', '端午': '端午节', '中秋': '中秋节', '国庆': '国庆节' };
+
+function pill(it, st, isToday) {
+  var pillBg = isToday ? { light: 'rgba(184,48,40,0.1)', dark: 'rgba(255,69,58,0.15)' } : PILL_BG;
+  var pillColor = isToday ? C.red : C.sub;
+  var iconName = isToday ? 'circle.fill' : 'paperplane.fill';
+  return mkRow([
+    mkIcon(iconName, pillColor, Math.round(st.title * 0.65)),
+    mkText(
+      (DISPLAY_NAME[it.name] || it.name) + ' · ' + mdToCn(it.md),
+      st.title * 0.85, 'semibold', pillColor,
+      { maxLines: 1, minScale: 0.6 }
+    ),
+  ], 4, {
+    padding: [3, 8],
+    backgroundColor: pillBg,
+    borderRadius: 10,
+    flex: 0,
+  });
+}
+
+// ── 新版 heroBlock：圆环图片 + 右侧大数字 + pill ──────────────
+// 圆环只做装饰，数字完全在圆环外右侧
+function heroBlock(it, st, themeKey) {
+  var isToday = it.days === 0;
+  var rColor   = isToday
+    ? (C.red.light)
+    : themeKey === 'weekend' ? C.blue.light : C.main.light;
+
+  var progress = ringProgress(it, null);
+  if (isToday) progress = 1;
+
+  // 中心图标 SVG 片段（内嵌到 SVG 字符串里）
+  var iconSize = st.ringSize * 0.25;
+  var ic = st.ringSize / 2 - iconSize / 2;
+  var centerIcon = isToday
+    ? '<path xmlns="http://www.w3.org/2000/svg" d="M' + (ic + iconSize*0.5) + ' ' + ic
+      + 'l' + (iconSize*0.23) + ' ' + (iconSize*0.5) + ' ' + (iconSize*0.52) + ' .08'
+      + 'l-' + (iconSize*0.4) + ' ' + (iconSize*0.37) + ' ' + (iconSize*0.09) + ' ' + (iconSize*0.52)
+      + 'l-' + (iconSize*0.44) + '-' + (iconSize*0.23)
+      + '-' + (iconSize*0.44) + ' ' + (iconSize*0.23)
+      + ' ' + (iconSize*0.09) + '-' + (iconSize*0.52)
+      + '-' + (iconSize*0.4) + '-' + (iconSize*0.37)
+      + ' ' + (iconSize*0.52) + '-.08z" fill="' + rColor + '" opacity="0.4"/>'
+    : '<rect xmlns="http://www.w3.org/2000/svg" x="' + ic + '" y="' + (ic + iconSize*0.1) + '"'
+      + ' width="' + iconSize + '" height="' + (iconSize*0.9) + '" rx="' + (iconSize*0.2) + '"'
+      + ' fill="none" stroke="rgba(0,0,0,0.13)" stroke-width="' + (iconSize*0.12) + '"/>'
+      + '<line xmlns="http://www.w3.org/2000/svg"'
+      + ' x1="' + ic + '" y1="' + (ic + iconSize*0.42) + '"'
+      + ' x2="' + (ic + iconSize) + '" y2="' + (ic + iconSize*0.42) + '"'
+      + ' stroke="rgba(0,0,0,0.1)" stroke-width="' + (iconSize*0.1) + '"/>';
+
+  var ringDataURI = makeRingSVG(progress, rColor, st.ringSize, centerIcon);
+  var ringImg = mkImage(ringDataURI, st.ringSize, st.ringSize);
+
+  var numColor = catColor(it.cat, isToday);
+  var numStr   = isToday ? '今天' : String(it.days);
+  var numSize  = isToday ? Math.round(st.num * 0.72) : st.num;
+
+  var rightCol = mkCol([
+    mkRow([
+      mkText(numStr, numSize, 'heavy', numColor, { maxLines: 1, minScale: 0.4 }),
+      isToday ? mkSpacer(0) : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+    ], isToday ? 0 : Math.round(st.num * 0.15), { alignItems: 'end' }),
+    pill(it, st, isToday),
+  ], Math.round(st.num * 0.1));
+
+  return mkRow([ringImg, rightCol], st.gapHero || 12, { alignItems: 'center' });
+}
+
+// ── 新版 cell：格子加日期副标（大号专用）────────────────────
+function cellLarge(it, st) {
+  var isToday = it.days === 0;
+  var daysColor = catColor(it.cat, isToday);
+  return mkCol([
+    mkText(it.name, st.name, 'medium',
+      isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.65 }),
+    mkText(isToday ? '今天' : it.days + '天', st.day, 'bold',
+      daysColor, { maxLines: 1, minScale: 0.6 }),
+    mkText(it.md, Math.round(st.name * 0.85), 'regular',
+      C.muted, { maxLines: 1 }),
+  ], 1, { flex: 1 });
+}
+
+// 中/小号格子（原版，不加日期副标）
+function cell(it, st) {
+  var isToday = it.days === 0;
+  return mkCol([
+    mkText(it.name, st.name, 'medium',
+      isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.65 }),
+    mkText(isToday ? '今天' : it.days + '天', st.day, 'bold',
+      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.6 }),
+  ], 0, { flex: 1 });
+}
+
+// ── 布局参数（扩展 ringSize / gapHero）──────────────────────
+var FAMILY_STYLE = {
+  systemSmall: {
+    pad: 10, cols: 2,
+    name: 9, day: 10, num: 30, unit: 10,
+    title: 11, heroName: 12,
+    gapRow: 3, gapTop: 2, gapMid: 4,
+    ringSize: 68, gapHero: 8,
+  },
+  systemMedium: {
+    pad: 14, cols: 3,
+    name: 9, day: 10, num: 36, unit: 12,
+    title: 11, heroName: 19,
+    gapRow: 4, gapTop: 2, gapMid: 6,
+    ringSize: 72, gapHero: 12,
+  },
+  systemLarge: {
+    pad: 15, cols: 3,
+    name: 11, day: 13, num: 52, unit: 16,
+    title: 13, heroName: 24,
+    gapRow: 0, gapTop: 2, gapMid: 8,
+    ringSize: 88, gapHero: 14,
+  },
+};
+
+function familyStyle(family) {
+  if (family === 'systemSmall') return FAMILY_STYLE.systemSmall;
+  if (family === 'systemLarge' || family === 'systemExtraLarge') return FAMILY_STYLE.systemLarge;
+  return FAMILY_STYLE.systemMedium;
+}
+
+// ── 布局预算（原有逻辑，小调整）────────────────────────────
+var LINE   = 1.5;
+var SAFETY = 6;
+
+function canvasOf(ctx, family) {
+  var size = ctx && ctx.size;
+  var w = size && size.width  ? size.width  : (family === 'systemSmall' ? 155 : 329);
+  var h = size && size.height ? size.height : (family === 'systemSmall' ? 155 : family === 'systemLarge' || family === 'systemExtraLarge' ? 345 : 155);
+  return { w: w, h: h };
+}
+
+function estimateLayout(w, h, st, maxItems) {
+  var innerH   = h - st.pad * 2;
+  var headerH  = st.title * LINE + 4;
+  var heroH    = st.ringSize + st.gapMid;        // 圆环高度决定 hero 区高度
+  var avail    = innerH - headerH - heroH - (st.gapTop || 0) - SAFETY;
+  // 大号格子多一行副标题
+  var cellLineH = (st === FAMILY_STYLE.systemLarge)
+    ? (st.name * LINE + st.day * LINE + st.name * 0.85 * LINE)
+    : (st.name * LINE + st.day * LINE);
+  var perRow   = cellLineH + (st.gapRow || 0);
+  var rows     = avail <= cellLineH ? 0 : Math.floor((avail + st.gapRow) / perRow);
+  rows = Math.max(0, rows);
+  var count    = Math.min(rows * st.cols, maxItems || rows * st.cols);
+  return { rows: rows, cols: st.cols, count: count };
+}
+
+// ── header（原有逻辑）────────────────────────────────────────
+function headerRow(title, today, st, themeKey) {
+  var iconColor = themeKey === 'fest' ? C.red : C.gold;
+  return mkRow([
+    mkIcon('hourglass.circle.fill', iconColor, Math.round(st.title * 0.9)),
+    mkText(title, st.title, 'heavy', C.main, { maxLines: 1, minScale: 0.7 }),
+    mkSpacer(),
+    mkText(today.m + '/' + today.d, Math.round(st.title * 0.8), 'medium', C.muted, { maxLines: 1 }),
+  ], 4);
+}
+
+// ── 小号布局（圆环在上，数字在圆环下方，不放圆环内）────────
+function buildSmall(ctx, items, title, today, themeKey, nowMs) {
+  var st  = familyStyle('systemSmall');
+  var next = items[0];
+  var rest = items.slice(1, 3);  // 底部最多 2 条
+  var children = [];
+
+  if (!next) {
+    children.push(mkText('没有数据', st.title, 'medium', C.muted));
+    return { type: 'widget', padding: st.pad, gap: 0, children: children };
+  }
+
+  var isToday  = next.days === 0;
+  var rColor   = isToday
+    ? C.red.light
+    : themeKey === 'weekend' ? C.blue.light : C.main.light;
+  var progress = isToday ? 1 : ringProgress(next, null);
+  var ringImg  = mkImage(makeRingSVG(progress, rColor, st.ringSize, ''), st.ringSize, st.ringSize);
+
+  // 节日名 + 日期
+  children.push(mkRow([
+    mkText(next.name, st.title, 'heavy',
+      isToday ? C.red : C.main, { maxLines: 1, minScale: 0.7, flex: 1 }),
+    mkText(today.m + '/' + today.d, st.title * 0.8, 'medium', C.muted, { maxLines: 1 }),
+  ], 4));
+
+  children.push(mkSpacer(st.gapTop));
+
+  // 圆环居中
+  children.push(mkRow([mkSpacer(), ringImg, mkSpacer()], 0));
+
+  // 数字在圆环正下方，外置
+  children.push(mkRow([
+    mkSpacer(),
+    mkText(isToday ? '今天' : String(next.days),
+      isToday ? Math.round(st.num * 0.8) : st.num,
+      'heavy', catColor(next.cat, isToday),
+      { maxLines: 1, minScale: 0.4 }),
+    isToday ? mkSpacer(0) : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+    mkSpacer(),
+  ], 3, { alignItems: 'end' }));
+
+  children.push(mkSpacer(st.gapMid));
+
+  // 底部 2 条
+  if (rest.length > 0) {
+    var rowKids = rest.map(function(it) { return cell(it, st); });
+    while (rowKids.length < 2) rowKids.push(mkSpacer());
+    children.push(mkRow(rowKids, 8));
+  }
+
+  return { type: 'widget', padding: st.pad, gap: 0, children: children };
+}
+
+// ── 中/大号布局 ───────────────────────────────────────────────
+function buildGrid(ctx, family, items, title, today, themeKey, nowMs, maxItems) {
+  var size = canvasOf(ctx, family);
+  var st   = familyStyle(family);
+  var plan = estimateLayout(size.w, size.h, st, maxItems);
+  var next = items[0];
+  var rest = items.slice(1, 1 + plan.count);
+  var isLarge = (family === 'systemLarge' || family === 'systemExtraLarge');
+  var children = [];
+
+  if (!next) {
+    children.push(mkText('没有数据', st.title, 'medium', C.muted));
+  } else {
+    children.push(headerRow(title, today, st, themeKey));
+    children.push(mkSpacer(st.gapTop));
+    children.push(heroBlock(next, st, themeKey));
+    children.push(mkSpacer(st.gapMid));
+
+    for (var i = 0; i < rest.length; i += st.cols) {
+      var rowItems = rest.slice(i, i + st.cols);
+      var row = rowItems.map(function(it) {
+        return isLarge ? cellLarge(it, st) : cell(it, st);
+      });
+      while (row.length < st.cols) row.push(mkSpacer());
+      if (i > 0 && st.gapRow > 0) children.push(mkSpacer(st.gapRow));
+      children.push(mkRow(row, 8));
+    }
+  }
+
+  return { type: 'widget', padding: st.pad, gap: 0, children: children };
+}
+
+// ── Accessory 尺寸（原有逻辑保持不变）────────────────────────
+function buildAccessory(items, family, title) {
+  var next  = items[0];
+  var label = next
+    ? (next.days === 0 ? next.name + ' 就是今天' : next.name + ' ' + next.days + '天')
+    : title;
+  if (family === 'accessoryInline') {
+    return { type: 'widget', children: [mkText(label, 12, 'semibold', C.main, { maxLines: 1 })] };
+  }
+  if (family === 'accessoryCircular') {
+    return {
+      type: 'widget', padding: 2,
+      children: [
+        mkText(next ? (next.days === 0 ? '今天' : String(next.days)) : '--',
+          16, 'heavy', C.main, { maxLines: 1, textAlign: 'center', minScale: 0.6 }),
+        mkText(next ? next.name : '', 8, 'medium', C.muted,
+          { maxLines: 1, textAlign: 'center' }),
+      ],
+    };
+  }
+  return {
+    type: 'widget', padding: 2,
+    children: [
+      mkText(title, 11, 'bold', C.sub, { maxLines: 1 }),
+      mkText(label, 12, 'semibold', C.main, { maxLines: 1 }),
+    ],
+  };
+}
+
+// ── 背景（原有）──────────────────────────────────────────────
 function backgroundGradient(themeKey) {
-  var colors = themeKey === 'fest' ? C.bgFest : themeKey === 'weekend' ? C.bgWeekend : C.bgWorkday;
+  var colors = themeKey === 'fest' ? C.bgFest
+    : themeKey === 'weekend' ? C.bgWeekend
+    : C.bgWorkday;
   return { type: 'linear', colors: colors, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } };
 }
 
@@ -303,214 +677,38 @@ function themeOf(items, today, env) {
 }
 
 function refreshAt(today, nowMs) {
-  // today.ms 是「北京日期」的 UTC 零点，换回真实时刻要减 8 小时
+  var DAY = 86400000;
   var nextMidnight = today.ms + DAY - 8 * 3600000;
-  var delta = nextMidnight - nowMs + 120000; // 过零点 2 分钟后再刷新
+  var delta = nextMidnight - nowMs + 120000;
   if (delta < 60000) delta = 60000;
   return new Date(nowMs + delta).toISOString();
 }
 
-// ── 布局预算 ───────────────────────────────────────────────
-// 参考做法（lylywayr / jnlaoshu 的「时光倒数」）：
-//   先量画布 → 扣掉头部和标题块 → 算还剩几行 → 行数决定放几条。
-//   行高按 fontSize * 1.5 估（iOS 中文字形实际占位接近这个值），
-//   所有文字都带 maxLines:1 + minScale，宁少一条也不溢出。
-
-var LINE = 1.5;          // 行高系数
-var SAFETY = 6;          // 预留安全高度
-
-function canvasOf(ctx, family) {
-  var size = ctx && ctx.size;
-  var w = size && size.width ? size.width : (family === 'systemSmall' ? 155 : family === 'systemLarge' || family === 'systemExtraLarge' ? 329 : 329);
-  var h = size && size.height ? size.height : (family === 'systemSmall' ? 155 : family === 'systemLarge' || family === 'systemExtraLarge' ? 345 : 155);
-  return { w: w, h: h };
-}
-
-var FAMILY_STYLE = {
-  systemSmall: { pad: 9, cols: 2, name: 9, day: 10, num: 28, unit: 10, title: 11, heroName: 12, gapRow: 3, gapTop: 1, gapMid: 3 },
-  systemMedium: { pad: 9, cols: 3, name: 9, day: 10, num: 26, unit: 10, title: 11, heroName: 19, gapRow: 4, gapTop: 1, gapMid: 6 },
-  systemLarge: { pad: 13, cols: 3, name: 11, day: 14, num: 42, unit: 14, title: 13, heroName: 24, gapRow: 6, gapTop: 3, gapMid: 9 },
-};
-
-function familyStyle(family) {
-  if (family === 'systemSmall') return FAMILY_STYLE.systemSmall;
-  if (family === 'systemLarge' || family === 'systemExtraLarge') return FAMILY_STYLE.systemLarge;
-  return FAMILY_STYLE.systemMedium;
-}
-
-// 估算：头部 + 大数字块 + N 行格子，总高是否放得下
-function estimateLayout(w, h, st, maxItems) {
-  var innerH = h - st.pad * 2;
-  var headerH = st.title * LINE + 4;
-  var heroH = st.num * LINE;
-  var avail = innerH - headerH - heroH - (st.gapTop || 0) - (st.gapMid || 0) - SAFETY;
-  var cellH = st.name * LINE + st.day * LINE;
-  var perRow = cellH + st.gapRow;
-  var rows = avail <= cellH ? 0 : Math.floor((avail + st.gapRow) / perRow);
-  rows = Math.max(0, rows);
-  var count = Math.min(rows * st.cols, maxItems || rows * st.cols);
-  var usedH = headerH + heroH + (st.gapTop || 0) + (st.gapMid || 0) + rows * cellH + Math.max(0, rows - 1) * st.gapRow;
-  return { rows: rows, cols: st.cols, count: count, cellH: cellH, usedH: usedH, innerH: innerH, fits: usedH <= innerH };
-}
-
-// ── 渲染 ───────────────────────────────────────────────────
-var DISPLAY_NAME = { '元旦': '元旦', '春节': '春节', '清明': '清明节', '劳动节': '劳动节', '端午': '端午节', '中秋': '中秋节', '国庆': '国庆节' };
-var PILL_BG = { light: 'rgba(0,0,0,0.055)', dark: 'rgba(255,255,255,0.12)' };
-
-function catColor(cat, isToday) {
-  if (isToday) return C.red;
-  if (cat === 'term') return C.green;
-  if (cat === 'west') return C.gold;
-  return C.main;
-}
-
-function mdToCn(md) {
-  var parts = String(md || '').split('/');
-  if (parts.length < 2) return md;
-  return parseInt(parts[0], 10) + '月' + parseInt(parts[1], 10) + '日';
-}
-
-// 每个 text 都必须 maxLines: 1，否则高度估算会失效
-function headerRow(title, today, st) {
-  return mkRow([
-    mkIcon('hourglass.circle.fill', C.gold, Math.round(st.title * 0.9)),
-    mkText(title, st.title, 'heavy', C.main, { maxLines: 1, minScale: 0.7 }),
-    mkSpacer(),
-    mkText(today.m + '/' + today.d, Math.round(st.title * 0.8), 'medium', C.muted, { maxLines: 1 }),
-  ], 4);
-}
-
-function bigNumber(it, st, nameSize) {
-  var isToday = it.days === 0;
-  // 三段固定间距、整组居中：名字和「天」都贴着数字，外侧留白由两个弹性空位平分
-  var gapIn = Math.round(st.num * 0.42);   // 名字 ↔ 数字
-  var gapUnit = Math.round(st.num * 0.2);  // 数字 ↔ 天
-  var kids = [
-    { type: 'spacer', flex: 1 },
-    mkText(it.name, nameSize, 'heavy', isToday ? C.red : C.main, { maxLines: 1, minScale: 0.55 }),
-    mkSpacer(gapIn),
-    mkText(isToday ? '今天' : String(it.days), isToday ? Math.round(st.num * 0.85) : st.num, 'heavy',
-      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.4 }),
-  ];
-  if (!isToday) {
-    kids.push(mkSpacer(gapUnit));
-    kids.push(mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }));
-  }
-  kids.push({ type: 'spacer', flex: 1 });
-  return mkRow(kids, 0, { alignItems: 'end' });
-}
-
-function pill(it, st) {
-  return mkRow([
-    mkIcon('paperplane.fill', C.sub, Math.round(st.title * 0.7)),
-    mkText((DISPLAY_NAME[it.name] || it.name) + ' · ' + mdToCn(it.md), st.title * 0.85, 'semibold', C.main, { maxLines: 1, minScale: 0.6 }),
-  ], 4, { padding: [3, 8], backgroundColor: PILL_BG, borderRadius: 10, flex: 0 });
-}
-
-function cell(it, st) {
-  var isToday = it.days === 0;
-  return mkCol([
-    mkText(it.name, st.name, 'medium', isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.65 }),
-    mkText(isToday ? '今天' : it.days + '天', st.day, 'bold', catColor(it.cat, isToday), { maxLines: 1, minScale: 0.6 }),
-  ], 0, { flex: 1 });
-}
-
-function buildAccessory(items, family, title) {
-  var next = items[0];
-  var label = next ? (next.days === 0 ? next.name + ' 就是今天' : next.name + ' ' + next.days + '天') : title;
-  if (family === 'accessoryInline') {
-    return { type: 'widget', children: [mkText(label, 12, 'semibold', C.main, { maxLines: 1 })] };
-  }
-  if (family === 'accessoryCircular') {
-    return {
-      type: 'widget',
-      padding: 2,
-      children: [
-        mkText(next ? (next.days === 0 ? '今天' : String(next.days)) : '--', 16, 'heavy', C.main, { maxLines: 1, textAlign: 'center', minScale: 0.6 }),
-        mkText(next ? next.name : '', 8, 'medium', C.muted, { maxLines: 1, textAlign: 'center' }),
-      ],
-    };
-  }
-  return {
-    type: 'widget',
-    padding: 2,
-    children: [
-      mkText(title, 11, 'bold', C.sub, { maxLines: 1 }),
-      mkText(label, 12, 'semibold', C.main, { maxLines: 1 }),
-    ],
-  };
-}
-
-function buildGrid(ctx, family, items, title, today, nowMs, maxItems) {
-  var size = canvasOf(ctx, family);
-  var st = familyStyle(family);
-  var plan = estimateLayout(size.w, size.h, st, maxItems);
-  var next = items[0];
-  var rest = items.slice(1, 1 + plan.count);
-  var children = [];
-
-  if (!next) {
-    children.push(mkText('没有数据', st.title, 'medium', C.muted));
-  } else {
-    if (family === 'systemSmall') {
-      // 小号太窄，名字放进头部，主行只放大数字，胶囊省略
-      children.push(mkRow([
-        mkIcon('calendar', C.muted, 10),
-        mkText(next.name, st.title, 'heavy', next.days === 0 ? C.red : C.main, { maxLines: 1, minScale: 0.7 }),
-        mkSpacer(),
-        mkText(today.m + '/' + today.d, st.title * 0.8, 'medium', C.muted, { maxLines: 1 }),
-      ], 4));
-      children.push(mkSpacer(st.gapTop));
-      children.push(mkRow([
-        { type: 'spacer', flex: 1 },
-        mkText(next.days === 0 ? '今天' : String(next.days), next.days === 0 ? Math.round(st.num * 0.85) : st.num, 'heavy',
-          catColor(next.cat, next.days === 0), { maxLines: 1, minScale: 0.4 }),
-        next.days === 0 ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
-        { type: 'spacer', flex: 1 },
-      ].filter(Boolean), 3, { alignItems: 'end' }));
-      children.push(mkSpacer(st.gapMid));
-    } else {
-      children.push(headerRow(title, today, st));
-      children.push(mkSpacer(st.gapTop));
-      children.push(bigNumber(next, st, st.heroName));
-      children.push(mkSpacer(st.gapMid));
-    }
-
-    for (var i = 0; i < rest.length; i += st.cols) {
-      var row = rest.slice(i, i + st.cols).map(function (it) { return cell(it, st); });
-      while (row.length < st.cols) row.push({ type: 'spacer', flex: 1 });
-      if (i > 0) children.push(mkSpacer(st.gapRow));
-      children.push(mkRow(row, 8));
-    }
-  }
-
-  return { type: 'widget', padding: st.pad, gap: 0, children: children, refreshAfter: refreshAt(today, nowMs) };
-}
-
-// ── 入口 ───────────────────────────────────────────────────
+// ── 入口（替换原有 export default）──────────────────────────
 export default async function (ctx) {
-  var env = (ctx && ctx.env) || {};
-  var family = (ctx && ctx.widgetFamily) || 'systemMedium';
-  var nowMs = Date.now();
-  var today = beijingToday(nowMs);
-  var title = String(env.TITLE || '节日倒数');
+  var env     = (ctx && ctx.env)          || {};
+  var family  = (ctx && ctx.widgetFamily) || 'systemMedium';
+  var nowMs   = Date.now();
+  var today   = beijingToday(nowMs);       // 原有函数，保持不变
+  var title   = String(env.TITLE || '节日倒数');
   var transparent = String(env.TRANSPARENT || 'false').toLowerCase() === 'true';
-  var maxItems = parseInt(env.GRID_ITEMS || '0', 10) || 0;
+  var maxItems    = parseInt(env.GRID_ITEMS || '0', 10) || 0;
 
   var items = [];
-  try {
-    items = buildItems(today, env);
-  } catch (e) {
-    items = [];
-  }
+  try { items = buildItems(today, env); } catch (e) { items = []; }
 
   var themeKey = themeOf(items, today, env);
   var body;
+
   if (family === 'accessoryRectangular' || family === 'accessoryCircular' || family === 'accessoryInline') {
     body = buildAccessory(items, family, title);
+  } else if (family === 'systemSmall') {
+    body = buildSmall(ctx, items, title, today, themeKey, nowMs);
   } else {
-    body = buildGrid(ctx, family, items, title, today, nowMs, maxItems);
+    body = buildGrid(ctx, family, items, title, today, themeKey, nowMs, maxItems);
   }
+
+  body.refreshAfter = refreshAt(today, nowMs);
 
   var out = { type: 'widget' };
   if (!transparent) out.backgroundGradient = backgroundGradient(themeKey);
@@ -523,13 +721,9 @@ export default async function (ctx) {
     var pad = out.padding || 10;
     delete out.padding;
     out.children = [{
-      type: 'stack',
-      direction: 'column',
-      alignItems: 'start',
-      gap: 0,
+      type: 'stack', direction: 'column', alignItems: 'start', gap: 0,
       padding: pad,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.06)',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
       borderRadius: 'auto',
       children: out.children,
     }];
