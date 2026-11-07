@@ -188,6 +188,7 @@ function readConfig(env) {
     url: trim(env.URL),
     stamp: pick(env.STAMP, ['on', 'off'], 'on') === 'on',
     stampColor: trim(env.STAMP_COLOR),
+    debug: pick(env.DEBUG, ['on', 'off'], 'off') === 'on',
     stampSize: (function () { const v = num(env.STAMP_SIZE, 30); return v >= 15 && v <= 100 ? v : 30; })(),
     stampPos: (function () {
       const raw = trim(env.STAMP_POS).toLowerCase();
@@ -199,18 +200,70 @@ function readConfig(env) {
   };
 }
 
+
+// ── 画布识别 ─────────────────────────────────────────────
+// Egern 各版本传进来的 ctx.widgetFamily 可能是 systemSmall / small / 空，
+// 名字对不上就会退到中号默认值（这正是「只有中号能显示」的原因）。
+const FAMILY_ALIAS = {
+  systemsmall: 'systemSmall', small: 'systemSmall',
+  systemmedium: 'systemMedium', medium: 'systemMedium',
+  systemlarge: 'systemLarge', large: 'systemLarge',
+  systemextralarge: 'systemExtraLarge', extralarge: 'systemExtraLarge', xl: 'systemExtraLarge',
+  accessoryrectangular: 'accessoryRectangular',
+  accessorycircular: 'accessoryCircular',
+  accessoryinline: 'accessoryInline'
+};
+
+function rawFamily(ctx) {
+  if (!ctx) return '';
+  return String(ctx.widgetFamily || ctx.family || ctx.widget_family || '');
+}
+
+function sizeObject(ctx) {
+  if (!ctx) return null;
+  const cand = ctx.size || ctx.widgetSize || ctx.widget_size;
+  if (!cand) return null;
+  const w = num(cand.width !== undefined ? cand.width : cand.w, 0);
+  const h = num(cand.height !== undefined ? cand.height : cand.h, 0);
+  if (!(w > 0) || !(h > 0)) return null;
+  return { w: w, h: h };
+}
+
+function resolveFamily(ctx) {
+  const raw = rawFamily(ctx).trim().toLowerCase();
+  if (FAMILY_ALIAS[raw]) return FAMILY_ALIAS[raw];
+  // 兜一层关键字匹配：widgetSmall / system_small / SMALL 之类都能认
+  const key = raw.replace(/[^a-z]/g, '');
+  if (key) {
+    if (key.indexOf('accessory') === 0) {
+      if (key.indexOf('rect') >= 0) return 'accessoryRectangular';
+      if (key.indexOf('circle') >= 0) return 'accessoryCircular';
+      if (key.indexOf('inline') >= 0) return 'accessoryInline';
+    }
+    if (key.indexOf('extralarge') >= 0) return 'systemExtraLarge';
+    if (key.indexOf('small') >= 0) return 'systemSmall';
+    if (key.indexOf('large') >= 0) return 'systemLarge';
+    if (key.indexOf('medium') >= 0) return 'systemMedium';
+  }
+  // 名字不认识：用画布尺寸反推（小号近似正方形、中号很扁、大号很高）
+  const s = sizeObject(ctx);
+  if (s) {
+    if (s.h > 250) return 'systemLarge';
+    if (s.w > 240 && s.h < 220) return 'systemMedium';
+    if (Math.abs(s.w - s.h) <= 40) return 'systemSmall';
+  }
+  return 'systemMedium';
+}
+
 // ── 画布 ─────────────────────────────────────────────────
 function readCanvas(ctx, family) {
-  const f = FAMILY[family];
-  let w = 0, h = 0;
-  const s = (ctx && ctx.size) || null;
+  const f = FAMILY[family] || FAMILY.systemMedium;
+  const s = sizeObject(ctx);
+  let w = f.w, h = f.h;
   if (s) {
-    w = num(s.width, 0) || num(s.w, 0);
-    h = num(s.height, 0) || num(s.h, 0);
-  }
-  if (!w || !h) {
-    w = f ? f.w : 329;
-    h = f ? f.h : 155;
+    // 合理区间内才采信，避免某些版本给出像素值把排版撑爆
+    const ratio = s.w / s.h;
+    if (ratio > 0.3 && ratio < 3.2 && s.w >= 80 && s.w <= 1400) { w = s.w; h = s.h; }
   }
   return { family: family, w: Math.round(w), h: Math.round(h) };
 }
@@ -568,7 +621,7 @@ function renderAccessory(canvas, cfg, lines, family) {
 }
 
 function buildWidget(env, ctx) {
-  const family = ctx && ctx.widgetFamily ? String(ctx.widgetFamily) : 'systemMedium';
+  const family = resolveFamily(ctx);
   const now = new Date();
   const cfg = readConfig(env || {});
   const canvas = readCanvas(ctx, family);
@@ -576,6 +629,16 @@ function buildWidget(env, ctx) {
   if (isAccessory(family)) return renderAccessory(canvas, cfg, lines, family);
   const cap = limitFor(family, env || {});
   const rendered = render(canvas, cfg, lines, now, cap);
+  if (cfg.debug) {
+    rendered.children.push({
+      type: 'text',
+      text: 'dbg ' + (rawFamily(ctx) || '∅') + ' / ' + canvas.family + ' / ' + canvas.w + '×' + canvas.h,
+      font: { size: 8, weight: 'regular' },
+      textColor: '#888888',
+      maxLines: 1,
+      minScale: 1
+    });
+  }
   const transparent = cfg.style.paper === 'transparent';
 
   const root = {
@@ -612,7 +675,7 @@ function buildWidget(env, ctx) {
 }
 
 function fallback(ctx, err) {
-  const family = ctx && ctx.widgetFamily ? String(ctx.widgetFamily) : 'systemMedium';
+  const family = resolveFamily(ctx);
   const f = FAMILY[family] || FAMILY.systemMedium;
   return {
     type: 'widget',
@@ -638,4 +701,4 @@ export default async function (ctx) {
   }
 }
 
-export { buildWidget, readLines, readConfig, computeLayout, renderAccessory, STYLES, VERSION };
+export { buildWidget, resolveFamily, readCanvas, readLines, readConfig, computeLayout, renderAccessory, STYLES, VERSION };
