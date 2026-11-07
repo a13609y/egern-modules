@@ -458,10 +458,10 @@ var FAMILY_STYLE = {
   },
   systemMedium: {
     pad: 13, cols: 3,
-    name: 9, day: 11, num: 22, unit: 10,
+    name: 9, day: 11, num: 26, unit: 10,
     title: 11, heroName: 19,
     gapRow: 4, gapTop: 2, gapMid: 4,
-    ringSize: 58, gapHero: 10, heroH: 62,
+    ringSize: 92, gapHero: 10, heroH: 62,
   },
   systemLarge: {
     pad: 15, cols: 3,
@@ -575,7 +575,7 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
   return { type: 'widget', padding: st.pad, gap: 0, children: children };
 }
 
-// ── 中号布局：左「圆环 + 今天倒计时」，右「后面的节日列表」──
+// ── 中号布局：左边大圆环（数字在环心），右边两列节日列表 ──
 function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var st = familyStyle('systemMedium');
   var next = items[0];
@@ -591,45 +591,67 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var isToday = next.days === 0;
   var rColor = isToday ? C.red.light : (themeKey === 'weekend' ? C.blue.light : C.main.light);
   var progress = isToday ? 1 : ringProgress(next, null);
-
   var rs = st.ringSize;
-  var centerIcon = isToday ? starPath(rs / 2, rs / 2, rs * 0.15, 0.42, rColor) : '';
-  var ringImg = mkImage(makeRingSVG(progress, rColor, rs, centerIcon), rs, rs);
 
-  var numRow = mkRow([
-    mkText(isToday ? '今天' : String(next.days),
-      isToday ? Math.round(st.num * 0.66) : st.num,
-      'heavy', catColor(next.cat, isToday), { maxLines: 1, minScale: 0.5 }),
-    isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
-  ], 2, { alignItems: 'end' });
+  var centerIcon = isToday ? starPath(rs / 2, rs / 2, rs * 0.1, 0.22, rColor) : '';
+  var ringUri = makeRingSVG(progress, rColor, rs, centerIcon);
+
+  // 数字放在环心（背景图 + 居中文字）
+  var ringStack = {
+    type: 'stack', direction: 'column', width: rs, height: rs, gap: 0,
+    backgroundImage: ringUri, alignItems: 'center',
+    children: [
+      mkSpacer(),
+      mkRow([
+        mkText(isToday ? '今天' : String(next.days),
+          isToday ? Math.round(st.num * 0.85) : st.num,
+          'heavy', catColor(next.cat, isToday), { maxLines: 1, minScale: 0.45 }),
+        isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+      ], 2, { alignItems: 'end' }),
+      mkSpacer(),
+    ],
+  };
 
   var leftCol = mkCol([
-    ringImg,
-    numRow,
-    mkText(next.name, Math.max(8, st.name - 1), 'semibold',
+    mkText(next.name, st.name, 'semibold',
       isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
-  ], 1, { alignItems: 'center', width: rs + 12 });
+    ringStack,
+  ], 1, { alignItems: 'center', width: rs });
 
-  // 右侧列表能放几行，按画布高度算
+  // 右侧：两列，行距按剩余高度摊开
   var canvasH = canvasOf(ctx, 'systemMedium').h;
   var avail = canvasH - st.pad * 2 - (st.title * LINE + 4) - st.gapTop;
   var rowH = st.day * LINE;
   var maxRows = Math.max(1, Math.floor((avail + 2) / (rowH + 2)));
-  var rest = items.slice(1, 1 + Math.min(maxItems || 99, maxRows));
-  var rows = rest.map(function (it) {
-    var d = it.days === 0 ? '今天' : it.days + '天';
-    return mkRow([
-      mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.6 }),
-      mkText(d, st.day, 'bold', catColor(it.cat, it.days === 0), { maxLines: 1, minScale: 0.6 }),
-    ], 5);
-  });
-  var rightCol = mkCol(rows, 2, { flex: 1 });
+  var rest = items.slice(1, 1 + Math.min(maxItems || 99, maxRows * 2));
+  var gapRow = maxRows > 1
+    ? Math.max(3, Math.min(12, (avail - maxRows * rowH) / Math.max(1, Math.min(maxRows, Math.ceil(rest.length / 2)) - 1)))
+    : 2;
+
+  var gridRows = [];
+  for (var i = 0; i < rest.length; i += 2) {
+    gridRows.push(mkRow([
+      cellInline(rest[i], st),
+      rest[i + 1] ? cellInline(rest[i + 1], st) : null,
+    ], 8));
+  }
+  var rightCol = mkCol(gridRows, Math.round(gapRow), { flex: 1 });
 
   children.push(headerRow(title, today, st, themeKey));
   children.push(mkSpacer(st.gapTop));
-  children.push(mkRow([leftCol, mkSpacer(8), rightCol], 0, { alignItems: 'start' }));
+  children.push(mkRow([leftCol, mkSpacer(10), rightCol], 0, { alignItems: 'start' }));
 
   return { type: 'widget', padding: st.pad, gap: 0, children: children };
+}
+
+// 中号列表用的一格：名字 + 天数
+function cellInline(it, st) {
+  var isToday = it.days === 0;
+  return mkRow([
+    mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.55 }),
+    mkText(isToday ? '今天' : it.days + '天', st.day, 'bold',
+      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.55 }),
+  ], 6, { width: 104 });
 }
 
 // ── 大号布局 ─────────────────────────────────────────────────
