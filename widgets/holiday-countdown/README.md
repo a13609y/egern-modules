@@ -55,6 +55,9 @@ hero 区（圆环 + 右侧大数字 + 节日胶囊）的高度是**写死的预�
 | `SHOW_TERMS` | true | 是否显示二十四节气 |
 | `SHOW_WESTERN` | true | 是否显示现代节日 |
 | `ANNIVERSARIES` | 空 | 自定义纪念日 |
+| `HERO_ICON` | on | on 用鲸鱼娘剪影当主图 / off 退回圆环进度 |
+| `ART_COLOR` | 空 | 主图颜色，空=深灰 #3A3A3C，可填 #RRGGBB |
+| `ART_SIZE` | 100 | 主图大小百分比，40~200 |
 
 ## 数据从哪来
 
@@ -65,6 +68,15 @@ hero 区（圆环 + 右侧大数字 + 节日胶囊）的高度是**写死的预�
 - `holiday-countdown.yaml` / `holiday-countdown.js` —— 模块本体
 - `test.mjs` —— 14 条用例（含防溢出矩阵、maxLines 断言、数据正确性、主题、透明模式）
 - `gen-preview.mjs` → `preview.html` —— DSL 转 HTML 的近似渲染。**注意**：预览按 1.5 行高和 nowrap 渲染，仍不等于真机，只用来大致看结构
+
+## 主图（鲸鱼娘剪影）
+
+左侧主图是一张**矢量化剪影**：来自一张双色线稿，用 potrace 描成单条 `<path>`（220×220，路径 15.5KB），
+运行时按需注入颜色再 base64 编码成 data URI，约 **20.5KB**——在 Egern 单张 SVG 50KB 上限内。
+
+- 颜色默认深灰 `#3A3A3C`，在「主图颜色」里填 `#RRGGBB` 可换成任意色（比如 `#DD0207` 还原原稿红）
+- 大小用「主图大小」百分比调，100 = 版式默认（中号 80pt、大号 88pt、小号 54pt）
+- 不想要图就用 `HERO_ICON = off`，退回原来的圆环进度环（那套代码保留着）
 
 ## 已知限制
 
