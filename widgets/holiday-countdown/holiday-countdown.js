@@ -459,7 +459,7 @@ var FAMILY_STYLE = {
   systemMedium: {
     pad: 13, cols: 3,
     name: 9, day: 11, num: 24, unit: 10,
-    title: 11, heroName: 19, heroW: 54, cellW: 102,
+    title: 11, heroName: 19, heroW: 64, heroLabel: 14, cellW: 112,
     gapRow: 4, gapTop: 2, gapMid: 4,
     ringSize: 96, gapHero: 10, heroH: 62,
   },
@@ -603,7 +603,7 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   // 圆环右边的下方：上面是节日名，下面是倒计时
   var heroText = mkCol([
     mkSpacer(),
-    mkText(next.name, Math.max(8, st.name), 'semibold',
+    mkText(next.name, st.heroLabel, 'semibold',
       isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.5 }),
     mkRow([
       mkText(isToday ? '今天' : String(next.days),
@@ -617,10 +617,11 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var canvasH = canvasOf(ctx, 'systemMedium').h;
   var avail = canvasH - st.pad * 2 - (st.title * LINE + 4) - st.gapTop;
   var rowH = st.day * LINE;
-  var maxRows = Math.max(1, Math.floor((avail + 2) / (rowH + 2)));
+  var minGap = 9;                                    // 行间至少留这么多缝，不然挤成一团
+  var maxRows = Math.max(1, Math.floor((avail + minGap) / (rowH + minGap)));
   var rest = items.slice(1, 1 + Math.min(maxItems || 99, maxRows));
   var gapRow = rest.length > 1
-    ? Math.max(3, Math.min(11, (avail - rest.length * rowH) / (rest.length - 1)))
+    ? Math.max(minGap, Math.min(14, (avail - rest.length * rowH) / (rest.length - 1)))
     : 2;
 
   var gridRows = rest.map(function (it) { return cellInline(it, st); });
@@ -637,10 +638,10 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
 function cellInline(it, st) {
   var isToday = it.days === 0;
   return mkRow([
-    mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.5, width: 58 }),
+    mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.5, width: 60, textAlign: 'left' }),
     mkText(isToday ? '今天' : it.days + '天', st.day, 'bold',
-      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.5, textAlign: 'right', width: 36 }),
-  ], 8, { width: st.cellW });
+      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.45, textAlign: 'right', width: 40 }),
+  ], 10, { width: st.cellW });
 }
 
 // ── 大号布局 ─────────────────────────────────────────────────
