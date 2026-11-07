@@ -115,7 +115,7 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `ALIGN` | `left` / `center` / `right` | `left` |
 | `LINES_S` `LINES_M` `LINES_L` | 各尺寸显示行数上限 | 4 / 4 / 8 |
 | `FOOTER` | 底部小字（默认不显示，要开就手动填，支持 `{date}` `{weekday}` 等） | 空 |
-| `REFRESH_HOURS` | 刷新提示间隔（小时） | `6` |
+| `REFRESH_HOURS` | 刷新提示间隔（小时，可写小数） | `5/60`（5 分钟） |
 | `URL` | 点击组件打开的链接 | 空 |
 
 ---
@@ -123,5 +123,6 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 ## 已知限制
 
 - 锁屏组件没有背景和自定义颜色（iOS 限制），只能显示纯文字，最多 3 条。
-- 刷新是「提示」不是「保证」，iOS 自己决定何时重算；内容全是静态文字，所以刷新频率对观感没影响。
+- 刷新是「提示」不是「保证」，iOS 自己决定何时重算，还会节流（通常最快 5~15 分钟一次）。
+- **在模块里改完参数，桌面组件不会立刻变**：Egern 没有提供让脚本主动 reload 的接口，只能等下一次刷新提示到点（现在是 5 分钟）。急着看效果可以切一下组件尺寸，或者下拉一次锁屏/通知中心——任一操作唤醒扩展进程后会重建全部快照。
 - 官方组件 DSL 没有行高和旋转属性，所以便签本身没法倾斜（只有胶带装饰带一点角度）。

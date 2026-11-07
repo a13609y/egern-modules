@@ -205,7 +205,7 @@ function readConfig(env) {
       const v = alias[raw] || raw;
       return ['top-right', 'top-left', 'bottom-right', 'bottom-left'].indexOf(v) >= 0 ? v : 'top-right';
     })(),
-    hours: Math.min(72, Math.max(0, num(env.REFRESH_HOURS, 6)))
+    hours: (function () { const v = num(env.REFRESH_HOURS, 5 / 60); return v > 0 && v <= 72 ? v : 5 / 60; })()
   };
 }
 
@@ -622,7 +622,7 @@ function refreshAfter(cfg, now) {
     d.setHours(24, 2, 0, 0);
     return d.toISOString();
   }
-  d.setTime(d.getTime() + Math.max(1, cfg.hours) * 3600 * 1000);
+  d.setTime(d.getTime() + Math.max(1, cfg.hours * 60) * 60 * 1000);
   return d.toISOString();
 }
 
