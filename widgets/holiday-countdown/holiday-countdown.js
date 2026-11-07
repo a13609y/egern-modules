@@ -458,10 +458,10 @@ var FAMILY_STYLE = {
   },
   systemMedium: {
     pad: 13, cols: 3,
-    name: 9, day: 11, num: 24, unit: 10,
-    title: 11, heroName: 19, heroW: 64, heroLabel: 14, cellW: 112,
+    name: 9, day: 11, num: 30, unit: 12,
+    title: 11, heroName: 19, heroW: 84, heroLabel: 14, cellW: 104,
     gapRow: 4, gapTop: 2, gapMid: 4,
-    ringSize: 96, gapHero: 10, heroH: 62,
+    ringSize: 84, gapHero: 12, heroH: 62,
   },
   systemLarge: {
     pad: 15, cols: 3,
@@ -575,7 +575,7 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
   return { type: 'widget', padding: st.pad, gap: 0, children: children };
 }
 
-// ── 中号布局：左边大圆环，圆环右下角竖排「节日名 + 倒计时」，右边双列列表（天数右对齐）──
+// ── 中号布局：hero 照大号（圆环 + 右侧「今天」+ 节日胶囊），右边一列放后面的节日 ──
 function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var st = familyStyle('systemMedium');
   var next = items[0];
@@ -593,55 +593,53 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var progress = isToday ? 1 : ringProgress(next, null);
   var rs = st.ringSize;
 
-  var centerIcon = isToday ? starPath(rs / 2, rs / 2, rs * 0.1, 0.22, rColor) : '';
-  var ringStack = {
-    type: 'stack', direction: 'column', width: rs, height: rs, gap: 0,
-    backgroundImage: makeRingSVG(progress, rColor, rs, centerIcon),
-    children: [mkSpacer()],
-  };
+  var centerIcon = isToday ? starPath(rs / 2, rs / 2, rs * 0.12, 0.28, rColor) : '';
+  var ringImg = mkImage(makeRingSVG(progress, rColor, rs, centerIcon), rs, rs);
 
-  // 圆环右边的下方：上面是节日名，下面是倒计时
-  var heroText = mkCol([
-    mkSpacer(),
-    mkText(next.name, st.heroLabel, 'semibold',
-      isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.5 }),
-    mkRow([
-      mkText(isToday ? '今天' : String(next.days),
-        isToday ? Math.round(st.num * 0.8) : st.num,
-        'heavy', catColor(next.cat, isToday), { maxLines: 1, minScale: 0.45 }),
-      isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
-    ], 2, { alignItems: 'end' }),
-  ], 1, { alignItems: 'start', width: st.heroW, height: rs });
+  // hero 右列：大数字 + 节日胶囊（和大号同一套）
+  var numRow = mkRow([
+    mkText(isToday ? '今天' : String(next.days),
+      isToday ? Math.round(st.num * 0.76) : st.num,
+      'heavy', catColor(next.cat, isToday), { maxLines: 1, minScale: 0.45 }),
+    isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+  ], isToday ? 0 : Math.round(st.num * 0.12), { alignItems: 'end' });
 
-  // 右侧列表：两列，名字 / 天数分列固定宽度，天数右对齐 → 「天」竖着一条线
+  var heroCol = mkCol([numRow, pill(next, st, isToday)], Math.round(st.num * 0.1), { width: st.heroW });
+  var hero = mkRow([ringImg, heroCol], st.gapHero || 12, { alignItems: 'center' });
+
+  // 右侧一列：后面的节日，行距摊开铺满高度
   var canvasH = canvasOf(ctx, 'systemMedium').h;
-  var avail = canvasH - st.pad * 2 - (st.title * LINE + 4) - st.gapTop;
+  var avail = canvasH - st.pad * 2;
   var rowH = st.day * LINE;
-  var minGap = 9;                                    // 行间至少留这么多缝，不然挤成一团
+  var minGap = 6;
   var maxRows = Math.max(1, Math.floor((avail + minGap) / (rowH + minGap)));
   var rest = items.slice(1, 1 + Math.min(maxItems || 99, maxRows));
   var gapRow = rest.length > 1
-    ? Math.max(minGap, Math.min(14, (avail - rest.length * rowH) / (rest.length - 1)))
+    ? Math.max(minGap, Math.min(16, (avail - rest.length * rowH) / (rest.length - 1)))
     : 2;
 
-  var gridRows = rest.map(function (it) { return cellInline(it, st); });
-  var rightCol = mkCol(gridRows, Math.round(gapRow), { flex: 1 });
+  var rows = rest.map(function (it) { return cellInline(it, st); });
+  var listCol = mkCol(rows, Math.round(gapRow), { flex: 1 });
 
-  children.push(headerRow(title, today, st, themeKey));
-  children.push(mkSpacer(st.gapTop));
-  children.push(mkRow([ringStack, mkSpacer(6), heroText, mkSpacer(8), rightCol], 0, { alignItems: 'start' }));
+  children.push(mkRow([hero, listCol], 10, { alignItems: 'center' }));
 
   return { type: 'widget', padding: st.pad, gap: 0, children: children };
 }
 
-// 列表一格：名字（弹性）+ 天数（固定宽度、右对齐，保证「天」排成一条线）
+// 定宽盒子：text 本身不能设宽，靠弹性 spacer 在固定宽度的 stack 里顶到一侧
+function boxText(node, w, align) {
+  var kids = align === 'right' ? [mkSpacer(), node] : [node, mkSpacer()];
+  return { type: 'stack', direction: 'row', alignItems: 'center', gap: 0, width: w, children: kids };
+}
+
+// 列表一格：名字（左对齐）+ 天数（右对齐 → 「天」竖着对齐）
 function cellInline(it, st) {
   var isToday = it.days === 0;
   return mkRow([
-    mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.5, width: 60, textAlign: 'left' }),
-    mkText(isToday ? '今天' : it.days + '天', st.day, 'bold',
-      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.45, textAlign: 'right', width: 40 }),
-  ], 10, { width: st.cellW });
+    boxText(mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.5 }), 56, 'left'),
+    boxText(mkText(isToday ? '今天' : it.days + '天', st.day, 'bold',
+      catColor(it.cat, isToday), { maxLines: 1, minScale: 0.45 }), 40, 'right'),
+  ], 8, { width: st.cellW });
 }
 
 // ── 大号布局 ─────────────────────────────────────────────────
