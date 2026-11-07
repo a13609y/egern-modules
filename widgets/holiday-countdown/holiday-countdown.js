@@ -458,10 +458,10 @@ var FAMILY_STYLE = {
   },
   systemMedium: {
     pad: 13, cols: 3,
-    name: 9, day: 11, num: 24, unit: 10,
+    name: 9, day: 11, num: 22, unit: 10,
     title: 11, heroName: 19,
     gapRow: 4, gapTop: 2, gapMid: 4,
-    ringSize: 52, gapHero: 12, heroH: 62,
+    ringSize: 58, gapHero: 10, heroH: 62,
   },
   systemLarge: {
     pad: 15, cols: 3,
@@ -606,7 +606,7 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var leftCol = mkCol([
     ringImg,
     numRow,
-    mkText(next.name, st.name, 'semibold',
+    mkText(next.name, Math.max(8, st.name - 1), 'semibold',
       isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
   ], 1, { alignItems: 'center', width: rs + 12 });
 
@@ -619,9 +619,9 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var rows = rest.map(function (it) {
     var d = it.days === 0 ? '今天' : it.days + '天';
     return mkRow([
-      mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.6, flex: 1 }),
+      mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.6 }),
       mkText(d, st.day, 'bold', catColor(it.cat, it.days === 0), { maxLines: 1, minScale: 0.6 }),
-    ], 6);
+    ], 5);
   });
   var rightCol = mkCol(rows, 2, { flex: 1 });
 
