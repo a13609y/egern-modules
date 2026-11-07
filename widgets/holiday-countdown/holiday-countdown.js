@@ -621,11 +621,7 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var rows = rest.map(function (it) { return cellInline(it, st); });
   var listCol = mkCol(rows, Math.round(gapRow), { flex: 1 });
 
-  children.push(mkRow([
-    mkIcon('hourglass.circle.fill', themeKey === 'fest' ? C.red : C.gold, Math.round(st.title * 0.9)),
-    mkText(title, st.title, 'heavy', C.main, { maxLines: 1, minScale: 0.7 }),
-    mkSpacer(),
-  ], 4));
+  children.push(headerRow(title, today, st, themeKey));
   children.push(mkSpacer(st.gapTop));
   children.push(mkRow([hero, listCol], 10, { alignItems: 'center' }));
 
