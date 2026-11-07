@@ -186,6 +186,8 @@ function readConfig(env) {
     title: trim(env.TITLE),
     footer: trim(env.FOOTER),
     url: trim(env.URL),
+    stamp: pick(env.STAMP, ['on', 'off'], 'on') === 'on',
+    stampColor: trim(env.STAMP_COLOR),
     hours: Math.min(72, Math.max(0, num(env.REFRESH_HOURS, 6)))
   };
 }
@@ -271,8 +273,67 @@ function decorSvg(kind, w, accent) {
   return '';
 }
 
-function buildBackground(canvas, cfg) {
+
+// ── 今日日期印章 ─────────────────────────────────────────
+// 直接画在背景 SVG 上（z 序在文字之下），不占排版空间，所以正文行数不受影响。
+function prand(seed, n) {
+  const x = Math.sin(seed * 12.9898 + n * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function stampColorOf(cfg) {
+  const custom = cfg.stampColor;
+  if (custom && custom !== 'auto' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(custom)) return custom;
+  const a = cfg.accent;
+  if (typeof a === 'string' && /^#/.test(a)) return a;
+  return '#AD292E';
+}
+
+function stampGroup(x, y, w, cfg, now, seed) {
+  const scale = w / 600;
+  const rot = (prand(seed, 1) * 4 - 2).toFixed(2);          // -2° ~ 2°，每天稳定
+  const color = stampColorOf(cfg);
+  const dateText = (now.getMonth() + 1) + '月' + now.getDate() + '日';
+  const j = (base, n) => (base + (prand(seed + base, n) * 1.6 - 0.8)).toFixed(2);
+  return "<g transform='translate(" + x + " " + y + ") scale(" + scale + ") rotate(" + rot + " 300 130)' opacity='0.72'>" +
+    "<g fill='none' stroke='" + color + "' stroke-linecap='round' stroke-linejoin='round'>" +
+    "<rect x='" + j(18, 2) + "' y='" + j(18, 3) + "' width='564' height='224' rx='28' stroke-width='9'/>" +
+    "<rect x='" + j(30, 4) + "' y='" + j(30, 5) + "' width='540' height='200' rx='19' stroke-width='2.5'/>" +
+    "<path d='M95 " + j(67, 6) + " H220 M380 " + j(67, 7) + " H505' stroke-width='2.5'/>" +
+    "<path d='M95 " + j(198, 8) + " H220 M380 " + j(198, 9) + " H505' stroke-width='2.5'/>" +
+    "<path d='M53 " + j(65, 10) + " Q53 " + j(48, 11) + " 70 " + j(48, 12) + " M547 " + j(65, 13) + " Q547 " + j(48, 14) + " 530 " + j(48, 15) +
+    " M53 " + j(195, 16) + " Q53 " + j(212, 17) + " 70 " + j(212, 18) + " M547 " + j(195, 19) + " Q547 " + j(212, 20) + " 530 " + j(212, 21) + "' stroke-width='3'/>" +
+    "<path d='M265 " + j(67, 22) + " H335 M265 " + j(198, 23) + " H335' stroke-width='2'/>" +
+    "</g>" +
+    "<g fill='" + color + "' font-family='Arial,sans-serif' text-anchor='middle'>" +
+    "<text x='300' y='57' font-size='13' font-weight='700' letter-spacing='5'>DAILY RECORD</text>" +
+    "<text x='300' y='220' font-size='11' font-weight='600' letter-spacing='4'>PERSONAL ARCHIVE</text>" +
+    "</g>" +
+    "<text x='300' y='155' fill='" + color + "' text-anchor='middle' font-family='PingFang SC,Arial,sans-serif' font-size='77' font-weight='900'>" + dateText + "</text>" +
+    "</g>";
+}
+
+function buildStamp(canvas, cfg, now, seed) {
+  if (!cfg.stamp) return '';
   const w = canvas.w, h = canvas.h;
+  const sw = Math.min(Math.round(w * 0.46), 170);
+  const sh = Math.round(sw * 260 / 600);
+  const pad = Math.round(Math.min(w, h) * 0.04);
+  return stampGroup(w - sw - pad, h - sh - pad, sw, cfg, now, seed);
+}
+
+function buildStampLayer(canvas, cfg, now) {
+  const seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  const stamp = buildStamp(canvas, cfg, now, seed);
+  if (!stamp) return null;
+  const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + canvas.w + ' ' + canvas.h +
+    "' width='" + canvas.w + "' height='" + canvas.h + "'>" + stamp + '</svg>';
+  return svgUri(svg);
+}
+
+function buildBackground(canvas, cfg, now) {
+  const w = canvas.w, h = canvas.h;
+  const seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
   const parts = [];
   const paper = cfg.style.paper === 'transparent' ? '#000000' : cfg.paper;
   parts.push("<rect x='0' y='0' width='" + w + "' height='" + h + "' fill='" + paper + "'/>");
@@ -290,6 +351,9 @@ function buildBackground(canvas, cfg) {
     const accent = typeof cfg.accent === 'string' ? cfg.accent : '#B08A3E';
     parts.push(decorSvg(cfg.decor, w, accent));
   }
+
+  const stamp = buildStamp(canvas, cfg, now, seed);
+  if (stamp) parts.push(stamp);
 
   const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + w + ' ' + h + "' width='" + w + "' height='" + h + "'>" +
     parts.join('') + '</svg>';
@@ -524,10 +588,12 @@ function buildWidget(env, ctx) {
       borderRadius: 16,
       children: rendered.children
     }];
+    const stampLayer = buildStampLayer(canvas, cfg, now);
+    if (stampLayer) root.children[0].backgroundImage = stampLayer;
   } else {
     root.padding = [rendered.L.padTop, rendered.L.padL, rendered.L.padBottom, rendered.L.padR];
     root.backgroundColor = cfg.paper;
-    root.backgroundImage = buildBackground(canvas, cfg);
+    root.backgroundImage = buildBackground(canvas, cfg, now);
   }
   if (cfg.url) root.url = cfg.url;
   return root;

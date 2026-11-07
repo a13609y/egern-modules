@@ -18,6 +18,8 @@ compat_arguments:
   STYLE: paper
   DECOR: auto
   RULED: auto
+  STAMP: "on"
+  STAMP_COLOR: auto
   SIZE: "15"
   ALIGN: center
   LOCK_SIZE: "15"
@@ -90,6 +92,17 @@ env_schema:
       - auto
       - on
       - off
+  STAMP:
+    name: 今日日期印章
+    description: 在右下角盖一个当天的日期章（随手盖的角度每天略有不同）。文字行数不受影响。
+    default_value: "on"
+    options:
+      - "on"
+      - "off"
+  STAMP_COLOR:
+    name: 印章颜色
+    description: auto 跟随纸张样式（信纸暗红、黑板薄荷绿…）/ 也可以直接填 #AD292E
+    default_value: auto
   SIZE:
     name: 字号
     description: 默认 15，字号固定不变；一行写太长会自动省略，不会缩字。
@@ -126,6 +139,8 @@ scriptings:
         STYLE: "{{{STYLE}}}"
         DECOR: "{{{DECOR}}}"
         RULED: "{{{RULED}}}"
+        STAMP: "{{{STAMP}}}"
+        STAMP_COLOR: "{{{STAMP_COLOR}}}"
         SIZE: "{{{SIZE}}}"
         ALIGN: "{{{ALIGN}}}"
         LOCK_SIZE: "{{{LOCK_SIZE}}}"

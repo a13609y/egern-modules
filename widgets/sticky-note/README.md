@@ -32,6 +32,8 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `纸张样式` | 9 选 1 | `paper` / `sticky` / `grid` … |
 | `顶部装饰` | 强制统一装饰：`auto` 跟随样式 / `tape` 胶带 / `pin` 图钉 / `clip` 别针 / `none` 不要 | `auto` |
 | `下划线` | `auto` 跟随样式 / `on` 每一行都加（标题不加）/ `off` 全部不要 | `auto` |
+| `今日日期印章` | `on` 右下角盖今天的日期章（默认）/ `off` 关掉 | `on` |
+| `印章颜色` | `auto` 跟随纸张样式，或直接填 `#AD292E` | `auto` |
 | `字号` | 默认 `15`，固定不变 | `15` |
 | `对齐` | `center` 标题和正文一起居中（默认）/ `left` 全部靠左 | `center` |
 | `锁屏字号` | 锁屏组件单独用的字号，9~32 | `15` |
@@ -45,6 +47,8 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 - 行数超过组件能放下的量，末尾提示 `⋯ 还有 N 行`，写大号或调小字号就能多放。
 
 行数上限：**小号 4 行、中号 4 行、大号 8 行**，超出直接不显示，没有多余提示。
+
+日期印章画在背景层，**不占排版空间**，所以盖章不会挤掉任何一行文字；角度按日期做伪随机（每天固定一个小角度），像随手盖上去的。
 
 ---
 
