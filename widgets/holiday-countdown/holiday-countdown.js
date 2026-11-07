@@ -459,9 +459,9 @@ var FAMILY_STYLE = {
   systemMedium: {
     pad: 13, cols: 3,
     name: 9, day: 11, num: 30, unit: 12,
-    title: 11, heroName: 19, heroW: 84, heroLabel: 14, cellW: 104,
+    title: 11, heroName: 19, heroW: 98, heroLabel: 14, cellW: 100,
     gapRow: 4, gapTop: 2, gapMid: 4,
-    ringSize: 88, gapHero: 12, heroH: 62,
+    ringSize: 80, gapHero: 12, heroH: 62,
   },
   systemLarge: {
     pad: 15, cols: 3,
@@ -604,17 +604,7 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
     isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
   ], isToday ? 0 : Math.round(st.num * 0.12), { alignItems: 'end' });
 
-  // 中号横向太挤，胶囊只写节日名（日期在右上角已经有了）
-  var compactPill = mkRow([
-    mkIcon(isToday ? 'circle.fill' : 'paperplane.fill',
-      isToday ? C.red : C.sub, Math.round(st.title * 0.6)),
-    mkText(DISPLAY_NAME[next.name] || next.name, st.title * 0.85, 'semibold',
-      isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.6 }),
-  ], 3, {
-    padding: [2, 7], borderRadius: 9, flex: 0,
-    backgroundColor: isToday ? { light: 'rgba(184,48,40,0.1)', dark: 'rgba(255,69,58,0.15)' } : PILL_BG,
-  });
-  var heroCol = mkCol([numRow, compactPill], Math.round(st.num * 0.1), { width: st.heroW });
+  var heroCol = mkCol([numRow, pill(next, st, isToday)], Math.round(st.num * 0.1), { width: st.heroW });
   var hero = mkRow([ringImg, heroCol], st.gapHero || 12, { alignItems: 'center' });
 
   // 右侧一列：后面的节日，行距摊开铺满高度（扣掉顶部标题行）
@@ -631,7 +621,11 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   var rows = rest.map(function (it) { return cellInline(it, st); });
   var listCol = mkCol(rows, Math.round(gapRow), { flex: 1 });
 
-  children.push(headerRow(title, today, st, themeKey));
+  children.push(mkRow([
+    mkIcon('hourglass.circle.fill', themeKey === 'fest' ? C.red : C.gold, Math.round(st.title * 0.9)),
+    mkText(title, st.title, 'heavy', C.main, { maxLines: 1, minScale: 0.7 }),
+    mkSpacer(),
+  ], 4));
   children.push(mkSpacer(st.gapTop));
   children.push(mkRow([hero, listCol], 10, { alignItems: 'center' }));
 
@@ -648,7 +642,7 @@ function boxText(node, w, align) {
 function cellInline(it, st) {
   var isToday = it.days === 0;
   return mkRow([
-    boxText(mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.5 }), 56, 'left'),
+    boxText(mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.5 }), 52, 'left'),
     boxText(mkText(isToday ? '今天' : it.days + '天', st.day, 'bold',
       catColor(it.cat, isToday), { maxLines: 1, minScale: 0.45 }), 40, 'right'),
   ], 8, { width: st.cellW });
