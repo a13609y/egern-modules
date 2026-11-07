@@ -36,6 +36,10 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 | `印章颜色` | `auto` 跟随纸张样式，或直接填 `#AD292E` | `auto` |
 | `印章位置` | `top-right` 右上角（默认）/ `top-left` / `bottom-right` / `bottom-left` | `top-right` |
 | `印章大小` | 印章宽度占组件宽度的百分比，可填 15~100 | `30` |
+| `100 分印章` | `on` 盖一枚手绘「100 分」章（默认）/ `off` 关掉 | `on` |
+| `100 分印章位置` | `top-right` / `top-left` / `bottom-right` / `bottom-left`（默认） | `bottom-left` |
+| `100 分印章大小` | 占组件宽度的百分比，10~70 | `22` |
+| `100 分印章颜色` | `auto` 跟随样式，或填 `#E81010` 还原设计原色 | `auto` |
 | `字号` | 默认 `15`，固定不变 | `15` |
 | `对齐` | `center` 标题和正文一起居中（默认）/ `left` 全部靠左 | `center` |
 | `锁屏字号` | 锁屏组件单独用的字号，9~32 | `15` |
@@ -49,6 +53,8 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/sticky-note
 - 行数超过组件能放下的量，末尾提示 `⋯ 还有 N 行`，写大号或调小字号就能多放。
 
 行数上限：**小号 4 行、中号 4 行、大号 8 行**，超出直接不显示，没有多余提示。
+
+两枚章可以同时存在，各自选角；如果两个都放在同一个角，第二枚会自动沿垂直方向让开一点，不会叠死。
 
 印章里的文字是**矢量路径**（不是 SVG `<text>`），不依赖系统字体，也不会因为渲染器不支持文字而整块失效。
 

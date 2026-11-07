@@ -22,6 +22,10 @@ compat_arguments:
   STAMP_POS: top-right
   STAMP_SIZE: "30"
   STAMP_COLOR: auto
+  ART: "on"
+  ART_POS: bottom-left
+  ART_SIZE: "22"
+  ART_COLOR: auto
   SIZE: "15"
   ALIGN: center
   LOCK_SIZE: "15"
@@ -114,6 +118,30 @@ env_schema:
     name: 印章大小
     description: 印章宽度占组件宽度的百分比，可填 15~100。默认 30，调小就盖得小一点。
     default_value: "30"
+  ART:
+    name: 100 分印章
+    description: 打开后会盖一枚手绘风「100 分」章，可以更换位置和颜色。
+    default_value: "on"
+    options:
+      - "on"
+      - "off"
+  ART_POS:
+    name: 100 分印章位置
+    description: top-right 右上角 / top-left 左上角 / bottom-right 右下角 / bottom-left 左下角（默认）
+    default_value: bottom-left
+    options:
+      - top-right
+      - top-left
+      - bottom-right
+      - bottom-left
+  ART_SIZE:
+    name: 100 分印章大小
+    description: 占组件宽度的百分比，可填 10~70。默认 22。
+    default_value: "22"
+  ART_COLOR:
+    name: 100 分印章颜色
+    description: auto 跟随纸张样式，或直接填 #E81010（原设计红色）
+    default_value: auto
   STAMP_COLOR:
     name: 印章颜色
     description: auto 跟随纸张样式（信纸暗红、黑板薄荷绿…）/ 也可以直接填 #AD292E
@@ -158,6 +186,10 @@ scriptings:
         STAMP_POS: "{{{STAMP_POS}}}"
         STAMP_SIZE: "{{{STAMP_SIZE}}}"
         STAMP_COLOR: "{{{STAMP_COLOR}}}"
+        ART: "{{{ART}}}"
+        ART_POS: "{{{ART_POS}}}"
+        ART_SIZE: "{{{ART_SIZE}}}"
+        ART_COLOR: "{{{ART_COLOR}}}"
         SIZE: "{{{SIZE}}}"
         ALIGN: "{{{ALIGN}}}"
         LOCK_SIZE: "{{{LOCK_SIZE}}}"
