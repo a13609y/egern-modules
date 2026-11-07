@@ -343,11 +343,13 @@ function mkText(text, size, weight, color, opts) {
   return o;
 }
 function mkRow(children, gap, opts) {
+  children = children.filter(function (c) { return c; });
   var o = { type: 'stack', direction: 'row', alignItems: 'center', gap: gap || 4, children: children };
   if (opts) for (var k in opts) o[k] = opts[k];
   return o;
 }
 function mkCol(children, gap, opts) {
+  children = children.filter(function (c) { return c; });
   var o = { type: 'stack', direction: 'column', alignItems: 'start', gap: gap || 2, children: children };
   if (opts) for (var k in opts) o[k] = opts[k];
   return o;
@@ -412,7 +414,7 @@ function heroBlock(it, st, themeKey) {
   var rightCol = mkCol([
     mkRow([
       mkText(numStr, numSize, 'heavy', numColor, { maxLines: 1, minScale: 0.4 }),
-      isToday ? mkSpacer(0) : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+      isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
     ], isToday ? 0 : Math.round(st.num * 0.15), { alignItems: 'end' }),
     pill(it, st, isToday),
   ], Math.round(st.num * 0.1));
@@ -449,14 +451,14 @@ function cell(it, st) {
 var FAMILY_STYLE = {
   systemSmall: {
     pad: 10, cols: 2,
-    name: 9, day: 10, num: 22, unit: 9,
-    title: 11, heroName: 12,
-    gapRow: 3, gapTop: 2, gapMid: 3,
-    ringSize: 44, gapHero: 8, heroH: 0,
+    name: 9, day: 10, num: 18, unit: 9,
+    title: 11, heroName: 14,
+    gapRow: 3, gapTop: 1, gapMid: 2,
+    ringSize: 52, gapHero: 8, heroH: 0,
   },
   systemMedium: {
     pad: 13, cols: 3,
-    name: 9, day: 10, num: 26, unit: 11,
+    name: 9, day: 11, num: 24, unit: 10,
     title: 11, heroName: 19,
     gapRow: 4, gapTop: 2, gapMid: 4,
     ringSize: 52, gapHero: 12, heroH: 62,
@@ -531,28 +533,30 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
     ? C.red.light
     : themeKey === 'weekend' ? C.blue.light : C.main.light;
   var progress = isToday ? 1 : ringProgress(next, null);
-  var ringImg  = mkImage(makeRingSVG(progress, rColor, st.ringSize, ''), st.ringSize, st.ringSize);
+  var star = isToday ? starPath(st.ringSize / 2, st.ringSize / 2, st.ringSize * 0.15, 0.42, rColor) : '';
+  var ringImg  = mkImage(makeRingSVG(progress, rColor, st.ringSize, star), st.ringSize, st.ringSize);
 
-  // 节日名 + 日期
+  // 节日名：加粗 + 按类别着色（今天红 / 节气绿 / 现代节日金），右上角跟日期
   children.push(mkRow([
-    mkText(next.name, st.title, 'heavy',
-      isToday ? C.red : C.main, { maxLines: 1, minScale: 0.7, flex: 1 }),
-    mkText(today.m + '/' + today.d, st.title * 0.8, 'medium', C.muted, { maxLines: 1 }),
+    mkText(next.name, st.heroName, 'heavy',
+      catColor(next.cat, isToday), { maxLines: 1, minScale: 0.55, flex: 1 }),
+    mkText(today.m + '/' + today.d, Math.round(st.title * 0.75), 'medium', C.muted, { maxLines: 1 }),
   ], 4));
 
-  children.push(mkSpacer(st.gapTop));
+  children.push(null);
 
   // 圆环居中
   children.push(mkRow([mkSpacer(), ringImg, mkSpacer()], 0));
 
-  // 数字在圆环正下方，外置
+  // 数字在圆环正下方
+  children.push(null);
   children.push(mkRow([
     mkSpacer(),
     mkText(isToday ? '今天' : String(next.days),
-      isToday ? Math.round(st.num * 0.8) : st.num,
+      isToday ? Math.round(st.num * 0.9) : st.num,
       'heavy', catColor(next.cat, isToday),
       { maxLines: 1, minScale: 0.4 }),
-    isToday ? mkSpacer(0) : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+    isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
     mkSpacer(),
   ], 3, { alignItems: 'end' }));
 
@@ -560,7 +564,7 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
 
   // 底部 2 条：先算一下加进去会不会超出画布，超了就不放
   var canvasH = canvasOf(ctx, 'systemSmall').h;
-  var usedH = st.title * LINE + st.gapTop + st.ringSize + st.num * LINE + st.gapMid + SAFETY;
+  var usedH = st.heroName * LINE + st.ringSize + st.num * LINE + st.gapMid + 2;
   var cellH = st.name * LINE + st.day * LINE;
   if (rest.length > 0 && usedH + cellH <= canvasH - st.pad * 2) {
     var rowKids = rest.map(function(it) { return cell(it, st); });
@@ -571,7 +575,64 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
   return { type: 'widget', padding: st.pad, gap: 0, children: children };
 }
 
-// ── 中/大号布局 ───────────────────────────────────────────────
+// ── 中号布局：左「圆环 + 今天倒计时」，右「后面的节日列表」──
+function buildMedium(ctx, items, title, today, themeKey, maxItems) {
+  var st = familyStyle('systemMedium');
+  var next = items[0];
+  var children = [];
+
+  if (!next) {
+    children.push(headerRow(title, today, st, themeKey));
+    children.push(mkSpacer(st.gapTop));
+    children.push(mkText('没有数据', st.title, 'medium', C.muted));
+    return { type: 'widget', padding: st.pad, gap: 0, children: children };
+  }
+
+  var isToday = next.days === 0;
+  var rColor = isToday ? C.red.light : (themeKey === 'weekend' ? C.blue.light : C.main.light);
+  var progress = isToday ? 1 : ringProgress(next, null);
+
+  var rs = st.ringSize;
+  var centerIcon = isToday ? starPath(rs / 2, rs / 2, rs * 0.15, 0.42, rColor) : '';
+  var ringImg = mkImage(makeRingSVG(progress, rColor, rs, centerIcon), rs, rs);
+
+  var numRow = mkRow([
+    mkText(isToday ? '今天' : String(next.days),
+      isToday ? Math.round(st.num * 0.66) : st.num,
+      'heavy', catColor(next.cat, isToday), { maxLines: 1, minScale: 0.5 }),
+    isToday ? null : mkText('天', st.unit, 'medium', C.sub, { maxLines: 1 }),
+  ], 2, { alignItems: 'end' });
+
+  var leftCol = mkCol([
+    ringImg,
+    numRow,
+    mkText(next.name, st.name, 'semibold',
+      isToday ? C.red : C.sub, { maxLines: 1, minScale: 0.55, textAlign: 'center' }),
+  ], 1, { alignItems: 'center', width: rs + 12 });
+
+  // 右侧列表能放几行，按画布高度算
+  var canvasH = canvasOf(ctx, 'systemMedium').h;
+  var avail = canvasH - st.pad * 2 - (st.title * LINE + 4) - st.gapTop;
+  var rowH = st.day * LINE;
+  var maxRows = Math.max(1, Math.floor((avail + 2) / (rowH + 2)));
+  var rest = items.slice(1, 1 + Math.min(maxItems || 99, maxRows));
+  var rows = rest.map(function (it) {
+    var d = it.days === 0 ? '今天' : it.days + '天';
+    return mkRow([
+      mkText(it.name, st.name, 'medium', C.sub, { maxLines: 1, minScale: 0.6, flex: 1 }),
+      mkText(d, st.day, 'bold', catColor(it.cat, it.days === 0), { maxLines: 1, minScale: 0.6 }),
+    ], 6);
+  });
+  var rightCol = mkCol(rows, 2, { flex: 1 });
+
+  children.push(headerRow(title, today, st, themeKey));
+  children.push(mkSpacer(st.gapTop));
+  children.push(mkRow([leftCol, mkSpacer(8), rightCol], 0, { alignItems: 'start' }));
+
+  return { type: 'widget', padding: st.pad, gap: 0, children: children };
+}
+
+// ── 大号布局 ─────────────────────────────────────────────────
 function buildGrid(ctx, family, items, title, today, themeKey, nowMs, maxItems) {
   var size = canvasOf(ctx, family);
   var st   = familyStyle(family);
@@ -676,9 +737,20 @@ export default async function (ctx) {
     body = buildAccessory(items, family, title);
   } else if (family === 'systemSmall') {
     body = buildSmall(ctx, items, title, today, themeKey, nowMs);
+  } else if (family === 'systemMedium' || family === 'medium') {
+    body = buildMedium(ctx, items, title, today, themeKey, maxItems);
   } else {
     body = buildGrid(ctx, family, items, title, today, themeKey, nowMs, maxItems);
   }
+
+  // 顶层兜一遍：任何 children 里的 null 都丢掉（mkSpacer(0) 之类）
+  (function prune(node) {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node.children)) {
+      node.children = node.children.filter(function (c) { return c; });
+      node.children.forEach(prune);
+    }
+  })(body);
 
   body.refreshAfter = refreshAt(today, nowMs);
 
