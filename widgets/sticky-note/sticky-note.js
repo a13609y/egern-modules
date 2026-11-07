@@ -188,6 +188,7 @@ function readConfig(env) {
     url: trim(env.URL),
     stamp: pick(env.STAMP, ['on', 'off'], 'on') === 'on',
     stampColor: trim(env.STAMP_COLOR),
+    stampSize: (function () { const v = num(env.STAMP_SIZE, 46); return v >= 15 && v <= 100 ? v : 46; })(),
     hours: Math.min(72, Math.max(0, num(env.REFRESH_HOURS, 6)))
   };
 }
@@ -316,7 +317,7 @@ function stampGroup(x, y, w, cfg, now, seed) {
 function buildStamp(canvas, cfg, now, seed) {
   if (!cfg.stamp) return '';
   const w = canvas.w, h = canvas.h;
-  const sw = Math.min(Math.round(w * 0.46), 170);
+  const sw = Math.max(40, Math.round(w * (cfg.stampSize / 100)));
   const sh = Math.round(sw * 260 / 600);
   const pad = Math.round(Math.min(w, h) * 0.04);
   return stampGroup(w - sw - pad, h - sh - pad, sw, cfg, now, seed);
