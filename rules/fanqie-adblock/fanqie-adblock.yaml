@@ -1,129 +1,274 @@
 name: 番茄小说去广告（增强版）
-description: 精确拦截番茄/红果/字节系广告：广告计费接口、穿山甲 SDK、广告素材签名、章末广告视频；保留正片、图床、风控与听书。比只靠 -lf/-lq 关键词的版本补上了会漏的几条路。
+description: >-
+  精确拦截番茄/红果/字节系广告：广告计费接口、穿山甲 SDK、广告素材签名、章末广告视频。
+  域名表由 rules/fanqie-adblock/sync.py 每天从上游聚合，正片/图床/风控域名有硬黑名单保护。
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules/tree/main/rules/fanqie-adblock
 
-# 用法：导入后完全退出番茄小说 → 清一次 App 缓存（或在设置里清）→ 重开。
-# 被 DNS 拦掉之后，已经缓存在本地的广告还会再播几次，属于正常现象。
+# 本文件由 sync.py 自动生成，请勿手改（改了下次同步会被覆盖）。
+# 激活规则 54 条；备用（默认关闭）18 条
+# 上游：abclq/clash-surge、abclq/fq-conf、bluee1111/hongguo、fmz200/sgmodule、honue/loon
+
+# 用法：导入后彻底退出番茄小说 → 清一次缓存 → 重开。
+# 已缓存到本地的广告会再播几次才消失，不是规则失效。
 
 rules:
-  # ── 1. 广告计费 / 广告位调度（番茄自己的广告接口）
+  # ── 1. 广告家族正则（覆盖上游还没抓到的子域）
   - domain_regex:
-      match: "^ads[0-9]*-normal(?:-[a-z0-9]+)?\\.zijieapi\\.com$"
+      match: '^ads[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$'
       policy: REJECT
-      name: 广告接口 ads*-normal
+      name: "广告计费接口 ads*-normal"
   - domain_regex:
-      match: "^minigame[0-9]*-normal(?:-[a-z0-9]+)?\\.zijieapi\\.com$"
+      match: '^minigame[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$'
       policy: REJECT
-      name: 小游戏广告位
+      name: "小游戏广告位"
   - domain_regex:
-      match: "^tnc[0-9]+-(?:aliec[0-9]+|alisc[0-9]+)\\.zijieapi\\.com$"
+      match: '^tnc[0-9]+-(?:aliec[0-9]+|alisc[0-9]+)\.zijieapi\.com$'
       policy: REJECT
-      name: 广告位调度 TNC
+      name: "广告位调度 TNC"
+  - domain_regex:
+      match: '^p[0-9]+-ad-sign\.byteimg\.com$'
+      policy: REJECT
+      name: "广告图片签名"
+  - domain_regex:
+      match: '^v[0-9]+-(?:(?:bd|se|se-sjy)-daily-)?reading-ad\.qznovelvod\.com$'
+      policy: REJECT
+      name: "章末/前贴片广告视频（正片是 reading-video，不动）"
+
+  # ── 2. 上游聚合的精确广告域名
   - domain_suffix:
-      match: ad.toutiao.com
+      match: "activity-ag.awemeughun.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "ad.toutiao.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "ads3-normal-hl.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "ads3-normal-lf.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "ads3-normal-lq.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "ads5-normal-hl.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "ads5-normal-lf.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "ads5-normal-lq.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "apd-pcdnwxlogin.teg.tencent-cloud.net"
+      policy: REJECT
+  - domain_suffix:
+      match: "api-access.pangolin-sdk-toutiao.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "api-access.pangolin-sdk-toutiao1.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "api.iegadp.qq.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "dig.bdurl.net"
+      policy: REJECT
+  - domain_suffix:
+      match: "l2-toutiao-quic-ipv6-ml.gslb.ksyuncdn.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "log-api.pangolin-sdk-toutiao.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "minigame3-normal-hl.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "minigame3-normal-lf.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "minigame3-normal-lq.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "minigame5-normal-hl.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "minigame5-normal-lf.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "minigame5-normal-lq.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "msync-im1-vip6-std.easemob.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "p3-ad-sign.byteimg.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "p6-ad-sign.byteimg.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "p9-ad-sign.byteimg.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "pangle.io"
+      policy: REJECT
+  - domain_suffix:
+      match: "pangolin-sdk-toutiao.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "pangolin-sdk-toutiao1.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "pglstatp-toutiao.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "praisewindow.ugsdk.cn"
+      policy: REJECT
+  - domain_suffix:
+      match: "sf3-ttcdn-tos.pstatp.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "tnc0-aliec2.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "tnc0-alisc1.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "tnc3-aliec2.snssdk.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "tnc3-aliec2.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "tnc3-alisc1.snssdk.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "tnc3-alisc1.zijieapi.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v11-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v13-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v26-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v5-bd-daily-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v5-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v5-se-sjy-daily-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v6-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v9-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "v96-reading-ad.qznovelvod.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "wmzfylgdsz.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "www.chengzijianzhan.com"
+      policy: REJECT
+  - domain_suffix:
+      match: "zlink.ugsdk.cn"
       policy: REJECT
 
-  # ── 2. 穿山甲（Pangle）广告 SDK —— 番茄广告漏网的主因
+  # ── 3. 归因/上报（默认关闭；想再少几秒开屏就打开，出问题关回去）
   - domain_suffix:
-      match: pangolin-sdk-toutiao.com
-      policy: REJECT
-  - domain_suffix:
-      match: pangolin-sdk-toutiao1.com
-      policy: REJECT
-  - domain_suffix:
-      match: pglstatp-toutiao.com
-      policy: REJECT
-  - domain_suffix:
-      match: pangle.io
-      policy: REJECT
-  - domain_suffix:
-      match: www.chengzijianzhan.com
-      policy: REJECT
-
-  # ── 3. 广告素材（只拦广告子域，不碰正片签名/图床）
-  - domain_regex:
-      match: "^p[0-9]+-ad-sign\\.byteimg\\.com$"
-      policy: REJECT
-      name: 广告图片签名
-  - domain_regex:
-      match: "^v[0-9]+-(?:(?:bd|se|se-sjy)-daily-)?reading-ad\\.qznovelvod\\.com$"
-      policy: REJECT
-      name: 章末/前贴片广告视频（正片是 reading-video，不动）
-  - domain_suffix:
-      match: sf3-ttcdn-tos.pstatp.com
-      policy: REJECT
-
-  # ── 4. 激励视频、广告弹窗、跳转追踪
-  - domain_suffix:
-      match: praisewindow.ugsdk.cn
-      policy: REJECT
-  - domain:
-      match: praisewindow-sinfonlinea.ugsdk.cn
-      policy: REJECT
-  - domain_suffix:
-      match: zlink.ugsdk.cn
-      policy: REJECT
-  - domain_suffix:
-      match: dig.bdurl.net
-      policy: REJECT
-  - domain_suffix:
-      match: wmzfylgdsz.com
-      policy: REJECT
-  - domain_suffix:
-      match: activity-ag.awemeughun.com
-      policy: REJECT
-  - domain_suffix:
-      match: l2-toutiao-quic-ipv6-ml.gslb.ksyuncdn.com
-      policy: REJECT
-
-  # ── 5. 第三方广告/登录跳转
-  - domain_suffix:
-      match: msync-im1-vip6-std.easemob.com
-      policy: REJECT
-  - domain_suffix:
-      match: apd-pcdnwxlogin.teg.tencent-cloud.net
-      policy: REJECT
-  - domain_suffix:
-      match: api.iegadp.qq.com
-      policy: REJECT
-
-  # ── 6. 埋点（默认关；残留广告上报占用不多，开了可能影响金币奖励判断）
-  - domain_regex:
-      match: "^(?:rt)?log[0-9]*-applog-(?:lf|hl)\\.fqnovel\\.com$"
+      match: "i-lq.snssdk.com"
       policy: REJECT
       disabled: true
-  - domain_regex:
-      match: "^mon[0-9]+-misc-(?:lf|hl)\\.fqnovel\\.com$"
+  - domain_suffix:
+      match: "i.snssdk.com"
       policy: REJECT
       disabled: true
-
-  # ── 7. 归因上报（默认关；这几条能少几秒开屏，但个别版本反馈影响风控/登录）
-  - domain:
-      match: i.snssdk.com
+  - domain_suffix:
+      match: "is-lq.snssdk.com"
       policy: REJECT
       disabled: true
-  - domain:
-      match: i-lq.snssdk.com
+  - domain_suffix:
+      match: "is.snssdk.com"
       policy: REJECT
       disabled: true
-  - domain:
-      match: mcs.snssdk.com
+  - domain_suffix:
+      match: "log3-applog-lf.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "log5-applog-hl.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "log5-applog-lf.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "mcs.snssdk.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "mon11-misc-hl.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "mon11-misc-lf.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "mon3-misc-lf.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "rtlog3-applog-hl.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "rtlog3-applog-lf.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "rtlog5-applog-hl.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "rtlog5-applog-lf.fqnovel.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "security-lq.snssdk.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "tnc3-bjlgy.snssdk.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "vas-lf-x.snssdk.com"
       policy: REJECT
       disabled: true
 
 url_rewrites:
   # 穿山甲广告接口直接返回空 JSON：SDK 立刻进入「无广告」分支。
-  # 比单纯 REJECT（连接被断 → SDK 换线路重试）更稳，这条是「广告有时又冒出来」的关键补丁。
-  - match: "^https?://[^/]*\\.pangolin-sdk-toutiao(?:1)?\\.com/api/ad/union/sdk/(?:get_ads|stats|settings)/"
+  # 比单纯 REJECT（断连 → SDK 换线路重试）更稳。
+  - match: '^https?://[^/]*\.pangolin-sdk-toutiao(?:1)?\.com/api/ad/union/sdk/(?:get_ads|stats|settings)/'
     location: "http://reject-dict/"
-  - match: "^https?://[^/]*\\.pglstatp-toutiao\\.com/.+/toutiao\\.mp4"
+  - match: '^https?://[^/]*\.pglstatp-toutiao\.com/.+/toutiao\.mp4'
     location: "http://reject-video/"
-  - match: "^https?://[^/]*\\.(?:pglstatp-toutiao|pstatp)\\.com/(?:obj|img)/(?:ad-app-package|ad|ad-pattern)/"
+  - match: '^https?://[^/]*\.(?:pglstatp-toutiao|pstatp)\.com/(?:obj|img)/(?:ad-app-package|ad|ad-pattern)/'
     location: "http://reject-video/"
 
-# 只有上面的 url_rewrites 需要 MITM；第 1~5 组域名规则不需要证书也能拦。
-# 没装 Egern 根证书时，域名规则照常生效，只是 url_rewrites 不生效。
+# 只有上面的 url_rewrites 需要 MITM；域名规则不装证书也生效。
 mitm:
   hostnames:
     includes:
