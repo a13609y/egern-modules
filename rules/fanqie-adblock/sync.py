@@ -138,6 +138,8 @@ def accept(d: str) -> str | None:
         return "risky"
     if any(x in d for x in RISKY):
         return "risky"
+    if re.match(r"^tnc[0-9]+-[a-z0-9]+\.snssdk\.com$", d):
+        return "risky"
     if labels(d) < MIN_LABELS:
         return None
     if not RELEVANT.search(d):
@@ -225,7 +227,7 @@ def build(active, risky, report) -> str:
     A('    location: "http://reject-dict/"')
     A("  - match: " + sq(r"^https?://[^/]*\.pglstatp-toutiao\.com/.+/toutiao\.mp4"))
     A('    location: "http://reject-video/"')
-    A("  - match: " + sq(r"^https?://[^/]*\.(?:pglstatp-toutiao|pstatp)\.com/(?:obj|img)/(?:ad-app-package|ad|ad-pattern)/"))
+    A("  - match: " + sq(r"^https?://[^/]*\.pglstatp-toutiao\.com/(?:obj|img)/(?:ad-app-package|ad|ad-pattern)/"))
     A('    location: "http://reject-video/"')
     A("")
     A("# 只有上面的 url_rewrites 需要 MITM；域名规则不装证书也生效。")
@@ -233,7 +235,7 @@ def build(active, risky, report) -> str:
     A("  hostnames:")
     A("    includes:")
     for h in ("*.pangolin-sdk-toutiao.com", "*.pangolin-sdk-toutiao1.com",
-              "*.pglstatp-toutiao.com", "*.pstatp.com"):
+              "*.pglstatp-toutiao.com"):
         A(f'      - "{h}"')
     A("")
     return "\n".join(L)
