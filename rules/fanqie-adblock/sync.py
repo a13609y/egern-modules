@@ -100,13 +100,28 @@ PINNED = [
 
 # ── 家族正则（额外覆盖上游还没抓到的子域）────────────────────
 FAMILIES = [
-    ("广告计费接口 ads*-normal", r"^ads[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$"),
-    ("小游戏广告位", r"^minigame[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$"),
-    ("广告位调度 TNC", r"^tnc[0-9]+-(?:aliec[0-9]+|alisc[0-9]+)\.zijieapi\.com$"),
-    ("广告图片签名", r"^p[0-9]+-ad-sign\.byteimg\.com$"),
+    ("广告计费接口 ads*-normal", r"^ads[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$", "REJECT-DROP"),
+    ("小游戏广告位", r"^minigame[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$", "REJECT-DROP"),
+    ("广告位调度 TNC", r"^tnc[0-9]+-(?:aliec[0-9]+|alisc[0-9]+)\.zijieapi\.com$", "REJECT-DROP"),
+    ("广告图片签名", r"^p[0-9]+-ad-sign\.byteimg\.com$", "REJECT"),
     ("章末/前贴片广告视频（正片是 reading-video，不动）",
-     r"^v[0-9]+-(?:(?:bd|se|se-sjy)-daily-)?reading-ad\.qznovelvod\.com$"),
+     r"^v[0-9]+-(?:(?:bd|se|se-sjy)-daily-)?reading-ad\.qznovelvod\.com$", "REJECT"),
 ]
+
+# 计费/上报/选路类域名 → REJECT-DROP（静默丢弃，SDK 会退避，不再秒重连）
+DROP_HOST = re.compile(r"(ads[0-9]|^tnc|minigame|applog|-misc-|-lq\.snssdk|pangolin|pglstatp)", re.I)
+
+
+PANGLE = re.compile(r"(pangolin|pglstatp|pangle\.io)", re.I)
+
+
+def is_pangle(domain: str) -> bool:
+    """穿山甲类不写域名规则：靠 url_rewrites 返回 {} 让 SDK 直接收工（不重试、不超时）。"""
+    return bool(PANGLE.search(domain))
+
+
+def policy_for(domain: str) -> str:
+    return "REJECT-DROP" if DROP_HOST.search(domain) else "REJECT"
 
 ONLY_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", re.I)
 DOMAIN_TOKEN = re.compile(
@@ -192,7 +207,7 @@ def build(active, risky, report) -> str:
     A("homepage: https://github.com/a13609y/egern-modules/tree/main/rules/fanqie-adblock")
     A("")
     A("# 本文件由 sync.py 自动生成，请勿手改（改了下次同步会被覆盖）。")
-    A(f"# 激活规则 {len(FAMILIES) + len(active)} 条；备用（默认关闭）{len(risky)} 条")
+    A(f"# 激活规则 {len(FAMILIES) + len([x for x in active if not is_pangle(x)])} 条；备用（默认关闭）{len(risky) + len([x for x in active if is_pangle(x)])} 条")
     A("# 上游：" + "、".join(s[0] for s in SOURCES))
     A("")
     A("# 用法：导入后彻底退出番茄小说 → 清一次缓存 → 重开。")
@@ -200,24 +215,33 @@ def build(active, risky, report) -> str:
     A("")
     A("rules:")
     A("  # ── 1. 广告家族正则（覆盖上游还没抓到的子域）")
-    for title, rx in FAMILIES:
+    for title, rx, pol in FAMILIES:
         A("  - domain_regex:")
         A(f"      match: {sq(rx)}")
-        A("      policy: REJECT")
+        A(f"      policy: {pol}")
         A(f"      name: {yaml_quote(title)}")
     A("")
     A("  # ── 2. 上游聚合的精确广告域名")
-    for d in active:
+    for d in [x for x in active if not is_pangle(x)]:
         A("  - domain_suffix:")
         A(f"      match: {yaml_quote(d)}")
-        A("      policy: REJECT")
+        A(f"      policy: {policy_for(d)}")
     A("")
+    pangle = [x for x in active if is_pangle(x)]
+    if pangle:
+        A("  # ── 2b. 穿山甲兜底（默认关闭）：装不了根证书、rewrite 不生效时打开这组")
+        for d in pangle:
+            A("  - domain_suffix:")
+            A(f"      match: {yaml_quote(d)}")
+            A("      policy: REJECT-DROP")
+            A("      disabled: true")
+        A("")
     if risky:
         A("  # ── 3. 归因/上报（默认关闭；想再少几秒开屏就打开，出问题关回去）")
         for d in risky:
             A("  - domain_suffix:")
             A(f"      match: {yaml_quote(d)}")
-            A("      policy: REJECT")
+            A("      policy: REJECT-DROP")
             A("      disabled: true")
         A("")
     A("url_rewrites:")
