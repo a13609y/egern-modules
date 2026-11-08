@@ -13,11 +13,19 @@ compat_arguments:
   SHOW_TERMS: "true"
   SHOW_WESTERN: "true"
   ANNIVERSARIES: ""
-  HERO_ICON: "on"
   ART_COLOR: ""
-  ART_SIZE: "100"
+  ART_SIZE: ""
   ART_X: ""
   ART_Y: ""
+  ART_SIZE_S: ""
+  ART_X_S: ""
+  ART_Y_S: ""
+  ART_SIZE_M: ""
+  ART_X_M: ""
+  ART_Y_M: ""
+  ART_SIZE_L: ""
+  ART_X_L: ""
+  ART_Y_L: ""
 
 compat_arguments_desc: |
   所有节日（含二十四节气与现代节日）按「还有几天」排成网格：大号 15 条、中号 7 条、小号 1 条 + 底部两条。
@@ -64,28 +72,49 @@ env_schema:
     options:
       - "true"
       - "false"
-  HERO_ICON:
-    name: 主图（鲸鱼娘剪影）
-    description: on 用鲸鱼娘剪影替换圆环（默认）/ off 退回原来的圆环进度
-    default_value: "on"
-    options:
-      - "on"
-      - "off"
   ART_COLOR:
     name: 主图颜色
     description: 留空跟随主题（默认深灰 #3A3A3C，节假日红、周末蓝）；也可以填 #RRGGBB 固定颜色
     default_value: ""
   ART_SIZE:
-    name: 主图大小
-    description: 百分比 40~200。100 = 默认尺寸；只影响图本身，不会推动旁边的文字
-    default_value: "100"
+    name: 主图大小（通用）
+    description: 百分比 40~200，留空=100。下面三个分尺寸的优先，只影响图本身不推动文字
+    default_value: ""
   ART_X:
-    name: 主图水平位置 X
-    description: 图标中心在组件宽度上的百分比 0~100，留空 = 版式默认。数字越大越靠右
+    name: 主图水平 X（通用）
+    description: 图标中心占画布宽度百分比 0~100，留空=版式默认
     default_value: ""
   ART_Y:
-    name: 主图垂直位置 Y
-    description: 图标中心在组件高度上的百分比 0~100，留空 = 版式默认。数字越大越靠下
+    name: 主图垂直 Y（通用）
+    description: 图标中心占画布高度百分比 0~100，留空=版式默认
+    default_value: ""
+  ART_SIZE_S:
+    name: 小号 · 主图大小
+    description: 只作用于小号，留空则用上面的通用值
+    default_value: ""
+  ART_X_S:
+    name: 小号 · 水平 X
+    default_value: ""
+  ART_Y_S:
+    name: 小号 · 垂直 Y
+    default_value: ""
+  ART_SIZE_M:
+    name: 中号 · 主图大小
+    default_value: ""
+  ART_X_M:
+    name: 中号 · 水平 X
+    default_value: ""
+  ART_Y_M:
+    name: 中号 · 垂直 Y
+    default_value: ""
+  ART_SIZE_L:
+    name: 大号 · 主图大小
+    default_value: ""
+  ART_X_L:
+    name: 大号 · 水平 X
+    default_value: ""
+  ART_Y_L:
+    name: 大号 · 垂直 Y
     default_value: ""
   ANNIVERSARIES:
     name: 自定义纪念日
@@ -107,11 +136,19 @@ scriptings:
         SHOW_TERMS: "{{{SHOW_TERMS}}}"
         SHOW_WESTERN: "{{{SHOW_WESTERN}}}"
         ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
-        HERO_ICON: "{{{HERO_ICON}}}"
         ART_COLOR: "{{{ART_COLOR}}}"
         ART_SIZE: "{{{ART_SIZE}}}"
         ART_X: "{{{ART_X}}}"
         ART_Y: "{{{ART_Y}}}"
+        ART_SIZE_S: "{{{ART_SIZE_S}}}"
+        ART_X_S: "{{{ART_X_S}}}"
+        ART_Y_S: "{{{ART_Y_S}}}"
+        ART_SIZE_M: "{{{ART_SIZE_M}}}"
+        ART_X_M: "{{{ART_X_M}}}"
+        ART_Y_M: "{{{ART_Y_M}}}"
+        ART_SIZE_L: "{{{ART_SIZE_L}}}"
+        ART_X_L: "{{{ART_X_L}}}"
+        ART_Y_L: "{{{ART_Y_L}}}"
 
 widgets:
   - name: 节日倒数
