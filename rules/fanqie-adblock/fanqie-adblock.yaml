@@ -6,7 +6,7 @@ author: a13609y
 homepage: https://github.com/a13609y/egern-modules/tree/main/rules/fanqie-adblock
 
 # 本文件由 sync.py 自动生成，请勿手改（改了下次同步会被覆盖）。
-# 激活规则 52 条；备用（默认关闭）20 条
+# 激活规则 45 条；备用（默认关闭）27 条
 # 上游：abclq/clash-surge、abclq/fq-conf、bluee1111/hongguo、fmz200/sgmodule、honue/loon
 
 # 用法：导入后彻底退出番茄小说 → 清一次缓存 → 重开。
@@ -16,15 +16,15 @@ rules:
   # ── 1. 广告家族正则（覆盖上游还没抓到的子域）
   - domain_regex:
       match: '^ads[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$'
-      policy: REJECT
+      policy: REJECT-DROP
       name: "广告计费接口 ads*-normal"
   - domain_regex:
       match: '^minigame[0-9]*-normal(?:-[a-z0-9]+)?\.zijieapi\.com$'
-      policy: REJECT
+      policy: REJECT-DROP
       name: "小游戏广告位"
   - domain_regex:
       match: '^tnc[0-9]+-(?:aliec[0-9]+|alisc[0-9]+)\.zijieapi\.com$'
-      policy: REJECT
+      policy: REJECT-DROP
       name: "广告位调度 TNC"
   - domain_regex:
       match: '^p[0-9]+-ad-sign\.byteimg\.com$'
@@ -44,30 +44,24 @@ rules:
       policy: REJECT
   - domain_suffix:
       match: "ads3-normal-hl.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "ads3-normal-lf.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "ads3-normal-lq.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "ads5-normal-hl.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "ads5-normal-lf.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "ads5-normal-lq.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "apd-pcdnwxlogin.teg.tencent-cloud.net"
-      policy: REJECT
-  - domain_suffix:
-      match: "api-access.pangolin-sdk-toutiao.com"
-      policy: REJECT
-  - domain_suffix:
-      match: "api-access.pangolin-sdk-toutiao1.com"
       policy: REJECT
   - domain_suffix:
       match: "api.iegadp.qq.com"
@@ -79,26 +73,23 @@ rules:
       match: "l2-toutiao-quic-ipv6-ml.gslb.ksyuncdn.com"
       policy: REJECT
   - domain_suffix:
-      match: "log-api.pangolin-sdk-toutiao.com"
-      policy: REJECT
-  - domain_suffix:
       match: "minigame3-normal-hl.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "minigame3-normal-lf.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "minigame3-normal-lq.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "minigame5-normal-hl.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "minigame5-normal-lf.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "minigame5-normal-lq.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "msync-im1-vip6-std.easemob.com"
       policy: REJECT
@@ -112,18 +103,6 @@ rules:
       match: "p9-ad-sign.byteimg.com"
       policy: REJECT
   - domain_suffix:
-      match: "pangle.io"
-      policy: REJECT
-  - domain_suffix:
-      match: "pangolin-sdk-toutiao.com"
-      policy: REJECT
-  - domain_suffix:
-      match: "pangolin-sdk-toutiao1.com"
-      policy: REJECT
-  - domain_suffix:
-      match: "pglstatp-toutiao.com"
-      policy: REJECT
-  - domain_suffix:
       match: "praisewindow.ugsdk.cn"
       policy: REJECT
   - domain_suffix:
@@ -131,16 +110,16 @@ rules:
       policy: REJECT
   - domain_suffix:
       match: "tnc0-aliec2.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "tnc0-alisc1.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "tnc3-aliec2.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "tnc3-alisc1.zijieapi.com"
-      policy: REJECT
+      policy: REJECT-DROP
   - domain_suffix:
       match: "v11-reading-ad.qznovelvod.com"
       policy: REJECT
@@ -178,86 +157,116 @@ rules:
       match: "zlink.ugsdk.cn"
       policy: REJECT
 
+  # ── 2b. 穿山甲兜底（默认关闭）：装不了根证书、rewrite 不生效时打开这组
+  - domain_suffix:
+      match: "api-access.pangolin-sdk-toutiao.com"
+      policy: REJECT-DROP
+      disabled: true
+  - domain_suffix:
+      match: "api-access.pangolin-sdk-toutiao1.com"
+      policy: REJECT-DROP
+      disabled: true
+  - domain_suffix:
+      match: "log-api.pangolin-sdk-toutiao.com"
+      policy: REJECT-DROP
+      disabled: true
+  - domain_suffix:
+      match: "pangle.io"
+      policy: REJECT-DROP
+      disabled: true
+  - domain_suffix:
+      match: "pangolin-sdk-toutiao.com"
+      policy: REJECT-DROP
+      disabled: true
+  - domain_suffix:
+      match: "pangolin-sdk-toutiao1.com"
+      policy: REJECT-DROP
+      disabled: true
+  - domain_suffix:
+      match: "pglstatp-toutiao.com"
+      policy: REJECT-DROP
+      disabled: true
+
   # ── 3. 归因/上报（默认关闭；想再少几秒开屏就打开，出问题关回去）
   - domain_suffix:
       match: "i-lq.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "i.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "is-lq.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "is.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "log3-applog-lf.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "log5-applog-hl.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "log5-applog-lf.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "mcs.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "mon11-misc-hl.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "mon11-misc-lf.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "mon3-misc-lf.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "rtlog3-applog-hl.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "rtlog3-applog-lf.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "rtlog5-applog-hl.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "rtlog5-applog-lf.fqnovel.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "security-lq.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "tnc3-aliec2.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "tnc3-alisc1.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "tnc3-bjlgy.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
   - domain_suffix:
       match: "vas-lf-x.snssdk.com"
-      policy: REJECT
+      policy: REJECT-DROP
       disabled: true
 
 url_rewrites:
