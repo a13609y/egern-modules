@@ -1,0 +1,63 @@
+name: sync-fanqie
+
+on:
+  schedule:
+    - cron: "41 3 * * *" # 每天 03:41 UTC（北京时间 11:41）跟一次上游
+  workflow_dispatch:
+  push:
+    paths:
+      - "rules/fanqie-adblock/**"
+      - ".github/workflows/sync-fanqie.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-fanqie
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉上游 → 重生成模块
+        run: python3 rules/fanqie-adblock/sync.py
+
+      - name: 静态校验
+        run: |
+          python3 - <<'PY'
+          import yaml, sys
+          d = yaml.safe_load(open('rules/fanqie-adblock/fanqie-adblock.yaml'))
+          assert d.get('rules'), 'rules 为空'
+          assert d.get('url_rewrites'), 'url_rewrites 为空'
+          act = [r for r in d['rules'] if not list(r.values())[0].get('disabled')]
+          assert len(act) >= 25, f'激活规则只有 {len(act)} 条，明显偏少'
+          # 硬黑名单：这些串一旦出现在任何匹配值里就是事故
+          never = ('novel-sign', 'reading-video', 'sinf', 'gecko', 'webcast',
+                   'douyincdn', 'douyinliving', 'fqnovelpic', 'volcengineapi',
+                   'douyinpic', 'ecombdimg', 'ecombdapi')
+          bad = []
+          for r in d['rules']:
+              m = list(r.values())[0]['match'].lower()
+              for n in never:
+                  # 只对纯域名条目做子串检查，正则里的否定语义单独放行
+                  if n in m and not m.startswith('^'):
+                      bad.append(m)
+          assert not bad, f'黑名单域名泄漏: {bad}'
+          print(f'yaml ok: {len(act)} 条激活 / {len(d["rules"]) - len(act)} 条备用')
+          PY
+
+      - name: 提交变化
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain rules/fanqie-adblock)" ]; then
+            git add rules/fanqie-adblock
+            git commit -m "chore(fanqie): 跟随上游更新 $(date -u +%F)"
+            git push
+            echo "::notice::已同步上游更新"
+          else
+            echo "上游无变化"
+          fi
