@@ -6,7 +6,7 @@ author: a13609y
 homepage: https://github.com/a13609y/egern-modules/tree/main/rules/fanqie-adblock
 
 # 本文件由 sync.py 自动生成，请勿手改（改了下次同步会被覆盖）。
-# 激活规则 54 条；备用（默认关闭）18 条
+# 激活规则 52 条；备用（默认关闭）20 条
 # 上游：abclq/clash-surge、abclq/fq-conf、bluee1111/hongguo、fmz200/sgmodule、honue/loon
 
 # 用法：导入后彻底退出番茄小说 → 清一次缓存 → 重开。
@@ -136,13 +136,7 @@ rules:
       match: "tnc0-alisc1.zijieapi.com"
       policy: REJECT
   - domain_suffix:
-      match: "tnc3-aliec2.snssdk.com"
-      policy: REJECT
-  - domain_suffix:
       match: "tnc3-aliec2.zijieapi.com"
-      policy: REJECT
-  - domain_suffix:
-      match: "tnc3-alisc1.snssdk.com"
       policy: REJECT
   - domain_suffix:
       match: "tnc3-alisc1.zijieapi.com"
@@ -250,6 +244,14 @@ rules:
       policy: REJECT
       disabled: true
   - domain_suffix:
+      match: "tnc3-aliec2.snssdk.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
+      match: "tnc3-alisc1.snssdk.com"
+      policy: REJECT
+      disabled: true
+  - domain_suffix:
       match: "tnc3-bjlgy.snssdk.com"
       policy: REJECT
       disabled: true
@@ -265,7 +267,7 @@ url_rewrites:
     location: "http://reject-dict/"
   - match: '^https?://[^/]*\.pglstatp-toutiao\.com/.+/toutiao\.mp4'
     location: "http://reject-video/"
-  - match: '^https?://[^/]*\.(?:pglstatp-toutiao|pstatp)\.com/(?:obj|img)/(?:ad-app-package|ad|ad-pattern)/'
+  - match: '^https?://[^/]*\.pglstatp-toutiao\.com/(?:obj|img)/(?:ad-app-package|ad|ad-pattern)/'
     location: "http://reject-video/"
 
 # 只有上面的 url_rewrites 需要 MITM；域名规则不装证书也生效。
@@ -275,4 +277,3 @@ mitm:
       - "*.pangolin-sdk-toutiao.com"
       - "*.pangolin-sdk-toutiao1.com"
       - "*.pglstatp-toutiao.com"
-      - "*.pstatp.com"
