@@ -323,7 +323,7 @@ const ART_VIEW = 220;
 // ── 鲸鱼娘剪影 ─────────────────────────────────────────────
 
 // 运行时配置（由入口写入）
-var ART_CFG = { color: '', scale: 100, off: false };
+var ART_CFG = { color: '', scale: 100, off: false, x: null, y: null, progress: 1 };
 
 function artColorOf() {
   // 默认深灰；想要别的颜色在「主图颜色」里填 #RRGGBB
@@ -334,12 +334,65 @@ function artSize(base) {
   return Math.max(24, Math.round(base * ART_CFG.scale / 100));
 }
 
-function heroImage(size) {
-  var color = artColorOf();
+// 图标画进背景层：Egern 的 DSL 没有 z-index / 绝对定位，
+// 只有 backgroundImage 能不占排版空间，所以把图形画在背景 SVG 里，
+// 这样调大小/位置都不会推动文字。
+// 图标画在**背景层**：Egern 的 DSL 没有 z-index / 绝对定位，
+// 只有 backgroundImage 能不占排版空间、还能压在文字上（其实是文字压在图上，
+// 但调整大小/位置时不会推动任何文字）。
+// 自动位置 = 版式里那个图标槽的中心（按各尺寸的 padding / header 高度算出来的）
+// small: pad10 + 标题行 21 + 槽/2 26 ≈ 57 / 155
+// medium: pad13 + 标题 20.5 + gap 2 + 槽/2 40 ≈ 75.5 / 155
+// large: pad15 + 标题 23.5 + gap 2 + 槽/2 44 ≈ 84.5 / 345
+var DEFAULT_POS = {
+  systemSmall: { x: 23, y: 37 },
+  systemMedium: { x: 16, y: 49 },
+  systemLarge: { x: 18, y: 24.5 },
+  systemExtraLarge: { x: 18, y: 24.5 }
+};
+
+function heroLayerSVG(canvasW, canvasH, family, themeKey) {
+  var st = familyStyle(family);
   if (ART_CFG.off) {
-    return mkImage(makeRingSVG(1, color, size, ''), size, size);
+    // 退回圆环：进度 = 剩余天数 / 365，越接近节日环越短
+    var size0 = Math.max(24, Math.round(st.ringSize * ART_CFG.scale / 100));
+    var dflt0 = DEFAULT_POS[family] || DEFAULT_POS.systemMedium;
+    var cx0 = canvasW * (ART_CFG.x === null ? dflt0.x : ART_CFG.x) / 100;
+    var cy0 = canvasH * (ART_CFG.y === null ? dflt0.y : ART_CFG.y) / 100;
+    var p = ART_CFG.progress;
+    return "<g transform='translate(" + (cx0 - size0 / 2).toFixed(1) + ' ' + (cy0 - size0 / 2).toFixed(1) + ")'>" +
+      makeRingSVG(p, artColorOf(), size0, '').replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + '</g>';
   }
-  return mkImage(heroArtURI(color), size, size);
+  var size = Math.max(24, Math.round(st.ringSize * ART_CFG.scale / 100));
+  var dflt = DEFAULT_POS[family] || DEFAULT_POS.systemMedium;
+  var cx = canvasW * (ART_CFG.x === null ? dflt.x : ART_CFG.x) / 100;
+  var cy = canvasH * (ART_CFG.y === null ? dflt.y : ART_CFG.y) / 100;
+  var x = cx - size / 2;
+  var y = cy - size / 2;
+  var s2 = (size / ART_VIEW * 0.1).toFixed(6);
+  return "<g transform='translate(" + x.toFixed(1) + ' ' + y.toFixed(1) + ")'>" +
+    "<g transform='translate(0 " + size + ") scale(" + s2 + ' ' + (-s2) + ")'>" +
+    "<path fill='" + artColorOf() + "' fill-rule='evenodd' d='" + ART_D + "'/></g></g>";
+}
+
+// 背景层 = 渐变底 + 图标（backgroundImage 会覆盖 backgroundGradient，所以底色也画进来）
+function buildWidgetBackground(canvasW, canvasH, family, themeKey, transparent) {
+  var colors = themeKey === 'fest' ? C.bgFest : themeKey === 'weekend' ? C.bgWeekend : C.bgWorkday;
+  var c1 = colors[0].light, c2 = colors[1].light;
+  var icon = heroLayerSVG(canvasW, canvasH, family, themeKey);
+  if (!icon && transparent) return '';
+  var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + canvasW + ' ' + canvasH +
+    "' width='" + canvasW + "' height='" + canvasH + "'>" +
+    "<defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>" +
+    "<stop offset='0' stop-color='" + c1 + "'/><stop offset='1' stop-color='" + c2 + "'/>" +
+    "</linearGradient></defs>" +
+    (transparent ? '' : "<rect width='" + canvasW + "' height='" + canvasH + "' fill='url(#bg)'/>") +
+    icon + '</svg>';
+  return svgDataURI(svg);
+}
+
+function svgDataURI(svg) {
+  return 'data:image/svg+xml;base64,' + b64(svg);
 }
 
 // 把路径画成 data URI：颜色在运行时注入，所以同一个常量能出任何颜色
@@ -413,8 +466,11 @@ function makeRingSVG(progress, color, size, centerIcon) {
     + (centerIcon || '')
     + '</svg>';
 
-  // percent 编码：不依赖 btoa，任何运行时都能跑
-  return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/'/g, '%27');
+  return svg;
+}
+
+function makeRingURI(progress, color, size) {
+  return 'data:image/svg+xml,' + encodeURIComponent(makeRingSVG(progress, color, size, '')).replace(/'/g, '%27');
 }
 
 // 以 (cx,cy) 为几何中心的正五角星（替代手写路径，不会偏）
@@ -430,11 +486,15 @@ function starPath(cx, cy, R, opacity, color) {
 
 // 计算圆环进度：用当年的节日周期作分母
 // 找同名节日上一次出现到这次的天数作 totalDays，默认 365
-function ringProgress(item, today) {
-  // 粗略：倒计时天数越少进度越高，以 365 天为满圈
-  var total = 365;
-  var elapsed = total - item.days;
-  return Math.max(0, Math.min(1, elapsed / total));
+// 圆环进度：**每天往前长一点，到节日当天满圈**。
+// 以 120 天为一个观察窗口（超过 120 天就只剩一小段起步弧），
+// 这样调整任何一个节日都能看到明显的「在推进」。
+var RING_WINDOW = 120;
+
+function ringProgress(item) {
+  if (item.days <= 0) return 1;                       // 今天 = 满圈
+  var p = 1 - item.days / RING_WINDOW;                // 越接近越满
+  return Math.max(0.04, Math.min(0.99, p));           // 留一点弧，不要完全消失
 }
 
 // ── 配色（原有，保持不变）────────────────────────────────────
@@ -526,8 +586,9 @@ function pill(it, st, isToday) {
 // 圆环只做装饰，数字完全在圆环外右侧
 function heroBlock(it, st, themeKey) {
   var isToday = it.days === 0;
-  var size = artSize(st.ringSize);
-  var heroImg = heroImage(size);
+  // 图标画在背景层：这里只留一个**固定宽**的空槽（不随 ART_SIZE 变化），
+  // 所以调大小/位置只动图，不会把文字挤走。
+  var slot = { type: 'stack', direction: 'column', width: st.ringSize, height: st.ringSize, gap: 0, children: [] };
 
   var numColor = catColor(it.cat, isToday);
   var numStr   = isToday ? '今天' : String(it.days);
@@ -541,7 +602,7 @@ function heroBlock(it, st, themeKey) {
     pill(it, st, isToday),
   ], Math.round(st.num * 0.1));
 
-  return mkRow([heroImg, rightCol], st.gapHero || 12, { alignItems: 'center' });
+  return mkRow([slot, rightCol], st.gapHero || 12, { alignItems: 'center' });
 
 }
 
@@ -652,8 +713,8 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
   }
 
   var isToday  = next.days === 0;
-  var sIcon    = artSize(st.ringSize);
-  var heroImg  = heroImage(sIcon);
+  var sIcon    = st.ringSize;
+  var slot     = { type: 'stack', direction: 'column', width: sIcon, height: sIcon, gap: 0, children: [] };
 
   // 节日名：加粗 + 按类别着色（今天红 / 节气绿 / 现代节日金），右上角跟日期
   children.push(mkRow([
@@ -665,7 +726,7 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
   children.push(null);
 
   // 圆环居中
-  children.push(mkRow([mkSpacer(), heroImg, mkSpacer()], 0));
+  children.push(mkRow([mkSpacer(), slot, mkSpacer()], 0));
 
   // 数字在圆环正下方
   children.push(null);
@@ -708,8 +769,8 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   }
 
   var isToday = next.days === 0;
-  var rs = artSize(st.ringSize);
-  var heroImg = heroImage(rs);
+  var rs = st.ringSize;
+  var slot = { type: 'stack', direction: 'column', width: rs, height: rs, gap: 0, children: [] };
 
   // hero 右列：大数字 + 节日胶囊（和大号同一套）
   var numRow = mkRow([
@@ -720,7 +781,7 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   ], isToday ? 0 : Math.round(st.num * 0.12), { alignItems: 'end' });
 
   var heroCol = mkCol([numRow, pill(next, st, isToday)], Math.round(st.num * 0.1), { width: st.heroW });
-  var hero = mkRow([heroImg, heroCol], st.gapHero || 12, { alignItems: 'center' });
+  var hero = mkRow([slot, heroCol], st.gapHero || 12, { alignItems: 'center' });
 
   // 右侧一列：后面的节日，行距摊开铺满高度（扣掉顶部标题行）
   var canvasH = canvasOf(ctx, 'systemMedium').h;
@@ -864,7 +925,12 @@ export default async function (ctx) {
   ART_CFG.color = artColor;
   ART_CFG.scale = artScale;
   ART_CFG.off = String(env.HERO_ICON || 'on').toLowerCase() === 'off';
+  var ax = parseFloat(env.ART_X);
+  var ay = parseFloat(env.ART_Y);
+  ART_CFG.x = (ax >= -20 && ax <= 120) ? ax : null;   // 留空 = 按版式自动
+  ART_CFG.y = (ay >= -20 && ay <= 120) ? ay : null;
   var themeKey = themeOf(items, today, env);
+  ART_CFG.progress = items.length ? ringProgress(items[0], today) : 0;
   var body;
 
   if (family === 'accessoryRectangular' || family === 'accessoryCircular' || family === 'accessoryInline') {
@@ -889,7 +955,10 @@ export default async function (ctx) {
   body.refreshAfter = refreshAt(today, nowMs);
 
   var out = { type: 'widget' };
-  if (!transparent) out.backgroundGradient = backgroundGradient(themeKey);
+  var canvas = canvasOf(ctx, family);
+  var bgLayer = buildWidgetBackground(canvas.w, canvas.h, family, themeKey, transparent);
+  if (bgLayer) out.backgroundImage = bgLayer;
+  else if (!transparent) out.backgroundGradient = backgroundGradient(themeKey);
   for (var k in body) {
     if (k === 'type' || k === 'backgroundGradient') continue;
     out[k] = body[k];
