@@ -1,0 +1,85 @@
+name: 番茄小说净化（隐藏短剧 / 福利）
+description: 删数据式净化，不动网络连通性。可单独开关隐藏「短剧」「福利/金币/签到」入口、清空活动中心、清理阅读页广告段。原理是改写 App 拿到的 JSON，不伪造请求，出问题关掉即恢复。
+author: a13609y（脚本移植自 Xhy333/QuantumultX 的 fqnovel-clean.js）
+homepage: https://github.com/a13609y/egern-modules/tree/main/rules/fanqie-clean
+manual: https://github.com/a13609y/egern-modules/blob/main/rules/fanqie-clean/README.md
+icon: text.badge.minus
+
+compat_arguments:
+  HIDE_DRAMA: "true"
+  HIDE_WELFARE: "true"
+  HIDE_ACTIVITY: "true"
+  CLEAN_READER: "true"
+
+env_schema:
+  HIDE_DRAMA:
+    name: 隐藏短剧入口
+    description: 删除「短剧」tab 和「剧场」卡片。想留着自己看短剧就关掉。
+    options:
+      - "true"
+      - "false"
+  HIDE_WELFARE:
+    name: 隐藏福利 / 金币 / 签到
+    description: 删除「我的」和书城里签到、宝箱、金币、提现、红包、任务这类入口。默认开启。
+    options:
+      - "true"
+      - "false"
+  HIDE_ACTIVITY:
+    name: 清空活动中心
+    description: 活动页列表整块清空（会显示为空页）。默认开启。
+    options:
+      - "true"
+      - "false"
+  CLEAN_READER:
+    name: 清理阅读页广告段
+    description: 只删除 JSON 里明确带广告标记的段落，绝不按文字删正文。默认开启。
+    options:
+      - "true"
+      - "false"
+  DEBUG:
+    name: 调试日志
+    description: 打开后在 Egern 日志里能看到每个接口删了什么，方便自己补词。
+    options:
+      - "false"
+      - "true"
+
+# 需要 MITM 才能改 HTTPS 响应体。域名只列真正承载这些 JSON 的接口主机，
+# 不放大到 *.fqnovel.com（避免拖慢图片/正片加载）。
+scriptings:
+  - http_response:
+      name: 番茄净化-我的页
+      match: "^https?://[^/]*\\.(?:fqnovel|snssdk|zijieapi)\\.com/reading/bookapi/my_tab/plan/"
+      script_url: "https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/fanqie-clean/fanqie-clean.js"
+      body_required: true
+      max_size: 2097152
+      timeout: 20
+  - http_response:
+      name: 番茄净化-书城
+      match: "^https?://[^/]*\\.(?:fqnovel|snssdk|zijieapi)\\.com/reading/bookapi/(?:plan|new_category/front|search/tab)/"
+      script_url: "https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/fanqie-clean/fanqie-clean.js"
+      body_required: true
+      max_size: 2097152
+      timeout: 20
+  - http_response:
+      name: 番茄净化-书架与活动
+      match: "^https?://[^/]*\\.(?:fqnovel|snssdk|zijieapi)\\.com/reading/(?:bookshelf/(?:recommend|video/info)|activity/list)/"
+      script_url: "https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/fanqie-clean/fanqie-clean.js"
+      body_required: true
+      max_size: 2097152
+      timeout: 20
+  - http_response:
+      name: 番茄净化-阅读页
+      match: "^https?://[^/]*\\.(?:fqnovel|snssdk)\\.com/reading/(?:reader|content)/"
+      script_url: "https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/fanqie-clean/fanqie-clean.js"
+      body_required: true
+      max_size: 4194304
+      timeout: 20
+
+mitm:
+  # 只解密承载这些 JSON 接口的主机，不放大到 *.fqnovel.com，
+  # 否则图片 / 正片 / 日志域全被解密，会明显变慢。
+  hostnames:
+    includes:
+      - "api*-normal*.fqnovel.com"
+      - "api*-sinfnormal.fqnovel.com"
+      - "reading.snssdk.com"
