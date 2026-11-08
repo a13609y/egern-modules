@@ -10,6 +10,42 @@ https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/fanqie-adbloc
 
 Egern → 模块 → 添加订阅 URL → 启用。
 
+## 自动跟随上游
+
+**这个模块不需要人来维护。** `.github/workflows/sync-fanqie.yml` 每天 03:41 UTC（北京时间 11:41）跑一次 `sync.py`：
+
+```
+上游 5 个源  →  抽取域名  →  过滤（相关性 / 具体子域 / 硬黑名单）  →  重写 fanqie-adblock.yaml  →  有变化才提交
+```
+
+| 上游 | 拉什么 | 更新频率 |
+|---|---|---|
+| [abclq/home-dns-adblock](https://github.com/abclq/home-dns-adblock) | `dist/clash-surge-rules.txt` + `config/adblock-fq.conf`（真机 DNS 日志验证过的精确规则、带误伤记录） | 每天 |
+| [bluee1111/egern-hongguo-adblock](https://github.com/bluee1111/egern-hongguo-adblock) | `hongguo-adblock.yaml`（红果/番茄原生 Egern 模块，穿山甲拦截） | 不定期 |
+| [fmz200/wool_scripts](https://github.com/fmz200/wool_scripts) | `Surge/.../FanQieNovel.sgmodule` | 不定期 |
+| [honue/rules](https://github.com/honue/rules) | `Loon/plugin/FanQieNovel.plugin` | 不定期 |
+
+想立刻拉一次：仓库 → Actions → `sync-fanqie` → Run workflow。
+
+### 为什么敢全自动
+
+上游给的是「域名」，脚本只做**收紧**，不做放开：
+
+- **只收具体子域**：段数 < 3 的一律丢弃，裸域永远不会被写进规则；
+- **相关性过滤**：只保留命中 `zijieapi / snssdk / fqnovel / qznovelvod / byteimg / pstatp / pangolin …` 的条目；
+- **硬黑名单 `NEVER`**：拦了必出事的串（`novel-sign`、`reading-video`、`sinf`、`gecko`、`webcast`、`douyincdn`、`fqnovelpic`、`ecombdapi` …）**哪怕上游加进来也直接丢弃**；
+- **归因类降级**：`i.snssdk.com` / `applog` / `-misc-` 这类不删除，只写成 `disabled: true` 的备用档；
+- **空结果保护**：解析不到 15 条就拒绝生成，防止上游改格式把模块刷成空壳；
+- 工作流还会再跑一遍 YAML 校验 + 黑名单断言，任何一条泄漏都直接失败，不会提交。
+
+### 手动跑
+
+```sh
+python3 sync.py            # 生成
+python3 sync.py --check    # 有变化 exit 1
+python3 sync.py --dry-run  # 只打印
+```
+
 ## 启用后必做
 
 1. 完全退出番茄小说（上滑杀掉，不是返回桌面）。
@@ -31,18 +67,23 @@ Egern → 模块 → 添加订阅 URL → 启用。
 | **章末/前贴片广告视频** `v*-reading-ad.qznovelvod.com` | ❌ **漏** | ✅ |
 | 激励视频弹窗 `praisewindow.ugsdk.cn` | ❌ **漏** | ✅ |
 
-`ads*` 接口被拒后，番茄的广告 SDK 会**降级到穿山甲**换一条线路再要一次广告——这就是「一会儿有、一会儿没有」的直接原因：拦住了主链路，备用链路还开着。
+`ads*` 接口被拒后，番茄的广告 SDK 会**降级到穿山甲**换一条线路再要一次广告——这就是「一会儿有、一会儿没有」的直接原因：主链路堵住了，备用链路还开着。
 
 另外，纯 `REJECT` 是**断开连接**，SDK 看到的是超时/失败，会重试；本模块对穿山甲接口追加了 `url_rewrites → reject-dict`，直接返回 `{}`，SDK 拿到「没有广告」的正常响应就会立刻收工。
 
-## 规则怎么来的
+## 两层保险
 
-| 来源 | 用到的部分 |
-|---|---|
-| [abclq/home-dns-adblock](https://github.com/abclq/home-dns-adblock) | 45 条经真机 DNS 日志验证的精确域名，以及一份**实测误伤清单**（哪些域绝对不能拦） |
-| [bluee1111/egern-hongguo-adblock](https://github.com/bluee1111/egern-hongguo-adblock) | 穿山甲拦截 + `reading-ad` 与 `reading-video` 的区分写法 |
-| [fmz200/wool_scripts](https://github.com/fmz200/wool_scripts) | 番茄小说 / 字节跳动 Surge 模块里的海外 CDN 与埋点域 |
-| [honue/rules](https://github.com/honue/rules) | Loon 版 FanQieNovel 插件的 URL-REGEX 思路 |
+除了上游域名，模块还固定生成 5 条**家族正则**：
+
+```
+^ads\d*-normal(-[a-z0-9]+)?\.zijieapi\.com$
+^minigame\d*-normal(-[a-z0-9]+)?\.zijieapi\.com$
+^tnc\d+-(aliec\d+|alisc\d+)\.zijieapi\.com$
+^p\d+-ad-sign\.byteimg\.com$
+^v\d+-(bd-daily-|se-daily-|se-sjy-daily-)?reading-ad\.qznovelvod\.com$
+```
+
+上游还没抓到的子域（`ads7-normal-lq`、`v17-reading-ad` 之类）也能被覆盖。
 
 ## 刻意没拦的（拦了会出事）
 
@@ -55,8 +96,8 @@ Egern → 模块 → 添加订阅 URL → 启用。
 
 ## 还想更狠
 
-模块里第 6、7 组规则是 `disabled: true`（埋点上报、`i.snssdk.com` 归因）。想再少几秒开屏就在 Egern 里把这几条打开，代价是个别版本可能影响登录/金币判定，出问题按原样关回去。
+模块里标记 `disabled: true` 的备用档是归因/上报域（`i.snssdk.com`、`log*-applog-*`、`mon*-misc-*`）。想再少几秒开屏就在 Egern 里手动打开，代价是个别版本可能影响登录/金币判定，出问题按原样关回去。
 
 ## MITM 说明
 
-第 1~5 组是纯域名规则，**不装证书也能拦**。只有 `url_rewrites` 那三条需要 `mitm` 里的域名，没装 Egern 根证书时它们自动不生效，不影响其它规则。
+域名规则**不装证书也能拦**。只有 `url_rewrites` 那三条需要 `mitm` 里的域名，没装 Egern 根证书时它们自动不生效，不影响其它规则。
