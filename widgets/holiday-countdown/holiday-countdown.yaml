@@ -1,5 +1,5 @@
 name: 节日倒数
-description: 距离下一个假期还有多少天 · 超大天数 + 节日胶囊 + 底部七格假期条 · 另有九宫格排版可切换 · 数据内置到 2050 年，不联网
+description: 距离下一个假期还有多少天 · 鲸鱼娘剪影主图（颜色/大小/位置可调）+ 右侧节日列表 · 数据内置到 2050 年，不联网
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules/tree/main/widgets/holiday-countdown
 icon: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/holiday-countdown/icon.png
@@ -12,32 +12,37 @@ compat_arguments:
   GRID_ITEMS: "0"
   SHOW_TERMS: "true"
   SHOW_WESTERN: "true"
-  ANNIVERSARIES: ""
-  HERO_ICON: "on"
   ART_COLOR: ""
-  ART_SIZE: "100"
+  ART_SIZE: ""
+  ART_X: ""
+  ART_Y: ""
+  ART_SIZE_S: ""
+  ART_X_S: ""
+  ART_Y_S: ""
+  ART_SIZE_M: ""
+  ART_X_M: ""
+  ART_Y_M: ""
+  ART_SIZE_L: ""
+  ART_X_L: ""
+  ART_Y_L: ""
+  ANNIVERSARIES: ""
 
-compat_arguments_desc: |
-  所有节日（含二十四节气与现代节日）按「还有几天」排成网格：大号 15 条、中号 7 条、小号 1 条 + 底部两条。
-  大号和中号右上角有胶囊，显示最近那个节日的名字和日期。
-  背景自动切换：节日当天暖橙、周末冷蓝、工作日浅灰，深浅色各一套。
-  节气绿色、现代节日金色、法定与传统节日主色。
-
+# ── 模块设置页自动生成的 UI 控件 ────────────────────────────
 env_schema:
   TITLE:
     name: 标题
-    description: 小组件左上角显示的标题
+    description: 顶部左侧显示的文字
     default_value: 节日倒数
   TRANSPARENT:
     name: 透明模式
-    description: 不画背景渐变，只保留极淡描边，露出壁纸
+    description: 不画背景，只留一圈极淡描边，适合配壁纸
     default_value: "false"
     options:
-      - "false"
       - "true"
+      - "false"
   THEME:
     name: 背景主题
-    description: auto = 节日当天暖橙、周末冷蓝、其余浅灰；也可以强制固定一种
+    description: auto 自动（节假日暖色 / 周末蓝 / 平日白）/ fest 节日 / weekend 周末 / workday 平日
     default_value: auto
     options:
       - auto
@@ -46,37 +51,64 @@ env_schema:
       - workday
   GRID_ITEMS:
     name: 最多显示条数
-    description: 0 = 按组件实际高度自动计算（推荐）；填数字则强制上限，填太大会被自动裁到放得下的数量
+    description: 0 = 按画布自动计算；填数字则强制上限
     default_value: "0"
   SHOW_TERMS:
     name: 显示二十四节气
-    description: 小寒、立春、惊蛰…共 24 个，绿色显示
     default_value: "true"
     options:
       - "true"
       - "false"
   SHOW_WESTERN:
     name: 显示现代节日
-    description: 情人节、妇女节、愚人节、表白日、儿童节、教师节、万圣夜、光棍节、双十二、平安夜、圣诞、跨年夜、母亲节、父亲节、感恩节，金色显示
     default_value: "true"
     options:
       - "true"
       - "false"
-  HERO_ICON:
-    name: 主图（鲸鱼娘剪影）
-    description: on 用鲸鱼娘剪影替换圆环（默认）/ off 退回原来的圆环进度
-    default_value: "on"
-    options:
-      - "on"
-      - "off"
   ART_COLOR:
     name: 主图颜色
-    description: 留空跟随主题（默认深灰 #3A3A3C，节假日红、周末蓝）；也可以填 #RRGGBB 固定颜色
+    description: 留空 = 深灰 #3A3A3C；也可以填 #RRGGBB，例如 #DD0207
     default_value: ""
   ART_SIZE:
-    name: 主图大小
-    description: 百分比，40~200。100 = 按版式默认尺寸，调大可以直接顶满左侧
-    default_value: "100"
+    name: 主图大小（通用）
+    description: 百分比 40~300，留空 = 100。下面三个分尺寸的优先
+    default_value: ""
+  ART_X:
+    name: 主图水平 X（通用）
+    description: 50 = 槽中心；数字越小越靠左，越大越靠右（可填 0~100 之外做微调）
+    default_value: ""
+  ART_Y:
+    name: 主图垂直 Y（通用）
+    description: 50 = 槽中心；数字越小越靠上，越大越靠下
+    default_value: ""
+  ART_SIZE_S:
+    name: 小号 · 主图大小
+    description: 只作用于小号，留空则用通用值
+    default_value: ""
+  ART_X_S:
+    name: 小号 · 水平 X
+    default_value: ""
+  ART_Y_S:
+    name: 小号 · 垂直 Y
+    default_value: ""
+  ART_SIZE_M:
+    name: 中号 · 主图大小
+    default_value: ""
+  ART_X_M:
+    name: 中号 · 水平 X
+    default_value: ""
+  ART_Y_M:
+    name: 中号 · 垂直 Y
+    default_value: ""
+  ART_SIZE_L:
+    name: 大号 · 主图大小
+    default_value: ""
+  ART_X_L:
+    name: 大号 · 水平 X
+    default_value: ""
+  ART_Y_L:
+    name: 大号 · 垂直 Y
+    default_value: ""
   ANNIVERSARIES:
     name: 自定义纪念日
     description: 用逗号分隔，格式「名字=05-20」每年循环，或「名字=2026-02-01」只算一次
@@ -96,10 +128,20 @@ scriptings:
         GRID_ITEMS: "{{{GRID_ITEMS}}}"
         SHOW_TERMS: "{{{SHOW_TERMS}}}"
         SHOW_WESTERN: "{{{SHOW_WESTERN}}}"
-        ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
-        HERO_ICON: "{{{HERO_ICON}}}"
         ART_COLOR: "{{{ART_COLOR}}}"
         ART_SIZE: "{{{ART_SIZE}}}"
+        ART_X: "{{{ART_X}}}"
+        ART_Y: "{{{ART_Y}}}"
+        ART_SIZE_S: "{{{ART_SIZE_S}}}"
+        ART_X_S: "{{{ART_X_S}}}"
+        ART_Y_S: "{{{ART_Y_S}}}"
+        ART_SIZE_M: "{{{ART_SIZE_M}}}"
+        ART_X_M: "{{{ART_X_M}}}"
+        ART_Y_M: "{{{ART_Y_M}}}"
+        ART_SIZE_L: "{{{ART_SIZE_L}}}"
+        ART_X_L: "{{{ART_X_L}}}"
+        ART_Y_L: "{{{ART_Y_L}}}"
+        ANNIVERSARIES: "{{{ANNIVERSARIES}}}"
 
 widgets:
   - name: 节日倒数

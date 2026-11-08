@@ -323,34 +323,67 @@ const ART_VIEW = 220;
 // ── 鲸鱼娘剪影 ─────────────────────────────────────────────
 
 // 运行时配置（由入口写入）
-var ART_CFG = { color: '', scale: 100, off: false };
+var ART_CFG = {
+  color: '',
+  size: '', sizeS: '', sizeM: '', sizeL: '',
+  x: '', xS: '', xM: '', xL: '',
+  y: '', yS: '', yM: '', yL: ''
+};
+
+// 各尺寸取自己的值，没填就用通用值，再没有就用默认（100 / 50 / 50）
+function cfgFor(family) {
+  var k = family === 'systemSmall' ? 'S'
+    : (family === 'systemLarge' || family === 'systemExtraLarge') ? 'L' : 'M';
+  function pick(g, suffix) {
+    var v = parseFloat(ART_CFG[suffix]);
+    if (isFinite(v)) return v;
+    var gg = parseFloat(g);
+    return isFinite(gg) ? gg : null;
+  }
+  var size = pick(ART_CFG.size, 'size' + k);
+  var x = pick(ART_CFG.x, 'x' + k);
+  var y = pick(ART_CFG.y, 'y' + k);
+  return {
+    scale: (size === null || size < 20 || size > 400) ? 100 : size,
+    x: (x === null || x < -200 || x > 300) ? 50 : x,
+    y: (y === null || y < -200 || y > 300) ? 50 : y
+  };
+}
 
 function artColorOf() {
   // 默认深灰；想要别的颜色在「主图颜色」里填 #RRGGBB
   return ART_CFG.color || '#3A3A3C';
 }
 
-function artSize(base) {
-  return Math.max(24, Math.round(base * ART_CFG.scale / 100));
+// 主图：外层是**固定宽**的槽（宽度永远 = ringSize），
+// 图本身按 S 缩放后可以比槽大，SwiftUI 不会裁剪，于是能压到文字上，
+// 但外层槽宽不变 → 文字一格都不会移动。
+function heroImage(slot, family) {
+  var c = cfgFor(family);
+  var draw = Math.max(16, Math.round(slot * c.scale / 100));
+  // 画布留 60% 余量：图可以偏出槽外，也不会被 SVG 视口裁掉
+  var box = Math.round(draw * 1.6);
+  var s2 = (draw / ART_VIEW * 0.1).toFixed(6);
+  var dx = (c.x - 50) / 100 * draw * 0.8;
+  var dy = (c.y - 50) / 100 * draw * 0.8;
+  var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + box + ' ' + box + "'>" +
+    "<g transform='translate(" + (box / 2 + dx - draw / 2).toFixed(2) + ' ' +
+    (box / 2 + dy - draw / 2).toFixed(2) + ")'>" +
+    "<g transform='translate(0 " + draw + ") scale(" + s2 + ' ' + (-s2) + ")'>" +
+    "<path fill='" + artColorOf() + "' fill-rule='evenodd' d='" + ART_D + "'/></g></g></svg>";
+  // 外层槽宽固定 = ringSize；里面图比槽大，靠溢出画出去，布局不受影响
+  return {
+    type: 'stack', direction: 'row', alignItems: 'center',
+    width: slot, height: slot, gap: 0,
+    children: [{ type: 'image', src: svgDataURI(svg), width: box, height: box }]
+  };
 }
 
-function heroImage(size) {
-  var color = artColorOf();
-  if (ART_CFG.off) {
-    return mkImage(makeRingSVG(1, color, size, ''), size, size);
-  }
-  return mkImage(heroArtURI(color), size, size);
-}
-
-// 把路径画成 data URI：颜色在运行时注入，所以同一个常量能出任何颜色
-function heroArtURI(color) {
-  var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + ART_VIEW + ' ' + ART_VIEW + "'>" +
-    "<g transform='translate(0," + ART_VIEW + ") scale(0.1,-0.1)'>" +
-    "<path fill='" + color + "' fill-rule='evenodd' d='" + ART_D + "'/></g></svg>";
+function svgDataURI(svg) {
   return 'data:image/svg+xml;base64,' + b64(svg);
 }
 
-// Egern 的 JS 运行时不一定有 btoa，这里自己实现一份
+// Egern 的 JS 运行时不一定有 btoa，这里自己实现一份（UTF-8 → base64）
 function b64(str) {
   var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   var bytes = utf8Bytes(str);
@@ -377,64 +410,6 @@ function utf8Bytes(str) {
     }
   }
   return out;
-}
-
-// ── SVG 圆环生成（HERO_ICON=off 时的备选）──────────────────
-
-// 生成三层圆环 Data URI（轨道 + 内虚线 + 进度弧 + 端点）
-// progress: 0~1，color: 进度弧颜色，size: 画布边长，centerIcon: 中心图标 SVG 字符串（可选）
-function makeRingSVG(progress, color, size, centerIcon) {
-  var cx = size / 2, cy = size / 2;
-  var r  = size * 0.386;         // 进度轨道半径
-  var ri = size * 0.295;         // 内虚线半径
-  var ro = size * 0.466;         // 外装饰圈半径
-  var sw = Math.max(2, size * 0.057); // 进度弧线宽
-  var circ = 2 * Math.PI * r;
-  var dash = circ * Math.min(1, Math.max(0, progress));
-  var angle = -Math.PI / 2 + 2 * Math.PI * progress;
-  var ex = cx + r * Math.cos(angle);
-  var ey = cy + r * Math.sin(angle);
-
-  var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 " + size + ' ' + size + "'"
-    + " width='" + size + "' height='" + size + "'>"
-    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + ro + "' fill='none' stroke='" + color + "' stroke-opacity='0.10' stroke-width='1'/>"
-    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + r + "' fill='none' stroke='" + color + "' stroke-opacity='0.12' stroke-width='" + sw + "'/>"
-    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + ri + "' fill='none' stroke='" + color + "' stroke-opacity='0.10' stroke-width='1' stroke-dasharray='3 5'/>"
-    + "<circle cx='" + cx + "' cy='" + cy + "' r='" + r + "' fill='none' stroke='" + color + "' stroke-width='" + sw + "'"
-    + " stroke-dasharray='" + dash.toFixed(1) + ' ' + circ.toFixed(1) + "' stroke-linecap='round'"
-    + " transform='rotate(-90 " + cx + ' ' + cy + ")'/>"
-    + "<circle cx='" + cx + "' cy='" + (cy - r) + "' r='" + (sw * 0.5) + "' fill='" + color + "' fill-opacity='0.18'/>"
-    + (progress > 0.01
-      ? "<circle cx='" + ex.toFixed(1) + "' cy='" + ey.toFixed(1) + "' r='" + (sw * 0.78) + "' fill='" + color + "'/>"
-      : '')
-    + (progress >= 0.999
-      ? "<circle cx='" + cx + "' cy='" + cy + "' r='" + (ro + 1) + "' fill='none' stroke='" + color + "' stroke-width='1.5' stroke-opacity='0.2'/>"
-      : '')
-    + (centerIcon || '')
-    + '</svg>';
-
-  // percent 编码：不依赖 btoa，任何运行时都能跑
-  return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/'/g, '%27');
-}
-
-// 以 (cx,cy) 为几何中心的正五角星（替代手写路径，不会偏）
-function starPath(cx, cy, R, opacity, color) {
-  var pts = [];
-  for (var i = 0; i < 10; i++) {
-    var rr = i % 2 === 0 ? R : R * 0.42;
-    var a = -Math.PI / 2 + i * Math.PI / 5;
-    pts.push((cx + rr * Math.cos(a)).toFixed(2) + ' ' + (cy + rr * Math.sin(a)).toFixed(2));
-  }
-  return "<path d='M" + pts.join('L') + "Z' fill='" + color + "' fill-opacity='" + opacity + "'/>";
-}
-
-// 计算圆环进度：用当年的节日周期作分母
-// 找同名节日上一次出现到这次的天数作 totalDays，默认 365
-function ringProgress(item, today) {
-  // 粗略：倒计时天数越少进度越高，以 365 天为满圈
-  var total = 365;
-  var elapsed = total - item.days;
-  return Math.max(0, Math.min(1, elapsed / total));
 }
 
 // ── 配色（原有，保持不变）────────────────────────────────────
@@ -526,8 +501,8 @@ function pill(it, st, isToday) {
 // 圆环只做装饰，数字完全在圆环外右侧
 function heroBlock(it, st, themeKey) {
   var isToday = it.days === 0;
-  var size = artSize(st.ringSize);
-  var heroImg = heroImage(size);
+  var size = st.ringSize;
+  var heroImg = heroImage(st.ringSize, 'systemLarge');
 
   var numColor = catColor(it.cat, isToday);
   var numStr   = isToday ? '今天' : String(it.days);
@@ -652,8 +627,8 @@ function buildSmall(ctx, items, title, today, themeKey, nowMs) {
   }
 
   var isToday  = next.days === 0;
-  var sIcon    = artSize(st.ringSize);
-  var heroImg  = heroImage(sIcon);
+  var sIcon    = st.ringSize;
+  var heroImg  = heroImage(sIcon, 'systemSmall');
 
   // 节日名：加粗 + 按类别着色（今天红 / 节气绿 / 现代节日金），右上角跟日期
   children.push(mkRow([
@@ -708,8 +683,8 @@ function buildMedium(ctx, items, title, today, themeKey, maxItems) {
   }
 
   var isToday = next.days === 0;
-  var rs = artSize(st.ringSize);
-  var heroImg = heroImage(rs);
+  var rs = st.ringSize;
+  var heroImg = heroImage(rs, 'systemMedium');
 
   // hero 右列：大数字 + 节日胶囊（和大号同一套）
   var numRow = mkRow([
@@ -858,12 +833,14 @@ export default async function (ctx) {
   try { items = buildItems(today, env); } catch (e) { items = []; }
 
   var artColor = String(env.ART_COLOR || '').trim();
-  if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(artColor)) artColor = '';   // 非法值交给主题
-  var artScale = parseFloat(env.ART_SIZE || '100');
-  if (!(artScale >= 40 && artScale <= 200)) artScale = 100;
+  if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(artColor)) artColor = '';
   ART_CFG.color = artColor;
-  ART_CFG.scale = artScale;
-  ART_CFG.off = String(env.HERO_ICON || 'on').toLowerCase() === 'off';
+  ['size', 'x', 'y'].forEach(function (k) {
+    ART_CFG[k] = String(env['ART_' + k.toUpperCase()] || '').trim();
+    ART_CFG[k + 'S'] = String(env['ART_' + k.toUpperCase() + '_S'] || '').trim();
+    ART_CFG[k + 'M'] = String(env['ART_' + k.toUpperCase() + '_M'] || '').trim();
+    ART_CFG[k + 'L'] = String(env['ART_' + k.toUpperCase() + '_L'] || '').trim();
+  });
   var themeKey = themeOf(items, today, env);
   var body;
 
