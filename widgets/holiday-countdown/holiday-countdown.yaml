@@ -19,7 +19,7 @@ compat_arguments:
   ART_SIZE_S: ""
   ART_X_S: ""
   ART_Y_S: ""
-  ART_SIZE_M: ""
+  ART_SIZE_M: "150"
   ART_X_M: ""
   ART_Y_M: ""
   ART_SIZE_L: ""
@@ -93,7 +93,8 @@ env_schema:
     default_value: ""
   ART_SIZE_M:
     name: 中号 · 主图大小
-    default_value: ""
+    description: 只作用于中号，默认 150（比槽宽大一半，会压到文字区但不推动排版）
+    default_value: "150"
   ART_X_M:
     name: 中号 · 水平 X
     default_value: ""
