@@ -450,46 +450,55 @@ const _on = (env, k, dft) => {
 const _strip = (arr, words) => arr.filter(x => !hit(String(x), words));
 
 function applyEnv(env) {
-  // ① 隐藏福利/金币/签到这一整类入口
   if (!_on(env, "HIDE_WELFARE", true)) {
     CONFIG.MINE_DROP = _strip(CONFIG.MINE_DROP, ["福利", "金币", "签到", "宝箱", "提现", "红包", "任务", "奖励"]);
     CONFIG.TAB_DROP = _strip(CONFIG.TAB_DROP, ["福利", "金币", "活动"]);
     CONFIG.STORE_DROP = _strip(CONFIG.STORE_DROP, ["金币", "福利", "签到", "红包", "提现", "活动", "任务"]);
     CONFIG.SHELF_DROP = _strip(CONFIG.SHELF_DROP, ["金币", "福利", "签到", "宝箱", "提现", "红包", "活动", "任务"]);
   }
-  // ② 隐藏短剧入口（默认关：上游是保留短剧的，这里按需反转）
-  if (_on(env, "HIDE_DRAMA", false)) {
+  if (_on(env, "HIDE_DRAMA", true)) {
     CONFIG.TAB_KEEP = _strip(CONFIG.TAB_KEEP, ["短剧", "剧场"]);
     CONFIG.MINE_KEEP = _strip(CONFIG.MINE_KEEP, ["短剧", "剧场"]);
     CONFIG.TAB_DROP = CONFIG.TAB_DROP.concat(["短剧", "剧场", "playlet", "short_series"]);
   }
-  // ③ 活动中心整块清空
   CONFIG.ACTIVITY_CLEAN = _on(env, "HIDE_ACTIVITY", true);
   CONFIG.DEBUG = _on(env, "DEBUG", false);
   if (!_on(env, "CLEAN_READER", true)) CONFIG.READER_CLEAN = false;
 }
 
 export default async function (ctx) {
-  const env = ctx.env || {};
-  if (!_on(env, "ENABLE", true)) return;
+  const env = (ctx && ctx.env) || {};
+  const on = _on(env, "ENABLE", true);
   applyEnv(env);
+  const url = (ctx && ctx.request && ctx.request.url) || "";
 
-  const url = (ctx.request && ctx.request.url) || "";
+  // 诊断：只要命中脚本就留一行，DEBUG 才输出完整信息
+  const diag = (msg) => { if (CONFIG.DEBUG) console.log("[番茄净化][诊断] " + msg); };
+  diag("命中 " + url.slice(0, 140));
+
+  if (!on) { diag("ENABLE=false，跳过"); return; }
+
   let body;
   try {
     body = await ctx.response.text();
   } catch (e) {
+    diag("读 body 失败: " + e);
     return;
   }
-  if (typeof body !== "string" || body.length < 2) return;
+  const ctype = (ctx.response.headers && (ctx.response.headers["content-type"] || ctx.response.headers.get && ctx.response.headers.get("content-type"))) || "?";
+  diag("content-type=" + ctype + " len=" + (body ? body.length : 0));
+
+  if (typeof body !== "string" || body.length < 2) { diag("body 为空，放过"); return; }
 
   let obj;
   try {
     obj = JSON.parse(body);
   } catch (e) {
-    return; // 非 JSON（HTML/二进制）原样放过
+    // 非 JSON（protobuf / gzip 未解 / 二进制）——这里是最常见的失败点
+    diag("不是 JSON，前 120 字: " + body.slice(0, 120));
+    return;
   }
-  if (!isObj(obj) && !isArr(obj)) return;
+  if (!isObj(obj) && !isArr(obj)) { diag("JSON 不是对象，放过"); return; }
 
   const kind = ctxOf(url);
   let changed = false;
@@ -514,7 +523,6 @@ export default async function (ctx) {
       changed = changed || before !== JSON.stringify(obj);
     }
 
-    // data 是二次编码 JSON 字符串的情况
     if (isObj(obj) && typeof obj.data === "string" && obj.data.length > 2 && obj.data.charAt(0) === "{") {
       try {
         const inner = JSON.parse(obj.data);
@@ -528,9 +536,11 @@ export default async function (ctx) {
       } catch (e2) {}
     }
   } catch (e) {
-    return; // 出错就原样返回，绝不让页面变砖
+    diag("处理异常，原样返回: " + e);
+    return;
   }
 
+  diag("分类=" + kind + " 改动=" + changed);
   if (changed) return { body: JSON.stringify(obj) };
   return;
 }
