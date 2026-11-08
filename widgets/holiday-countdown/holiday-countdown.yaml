@@ -27,22 +27,31 @@ compat_arguments:
   ART_Y_L: ""
   ANNIVERSARIES: ""
 
+compat_arguments_desc: |
+  所有参数留空 = 用默认值，不用逐项填。
+
+  常见改法：
+  · 换主图颜色 → 主图颜色 填 #DD0207（红）、#2F5F8F（蓝）、#000000（黑）
+  · 主图大小   → 80（小） / 100（默认） / 150（大） / 200（很大）
+  · 主图位置   → X 填 30 靠左、50 居中、70 靠右；Y 填 30 靠上、50 居中、70 靠下
+  · 三个尺寸分开调 → 用带 _S（小号）/ _M（中号）/ _L（大号）的那三组，优先于通用值
+
 # ── 模块设置页自动生成的 UI 控件 ────────────────────────────
 env_schema:
   TITLE:
     name: 标题
-    description: 顶部左侧显示的文字
+    description: 顶部左侧的文字。填「」留空则不显示标题
     default_value: 节日倒数
   TRANSPARENT:
     name: 透明模式
-    description: 不画背景，只留一圈极淡描边，适合配壁纸
+    description: true = 不画背景，只留一圈极淡描边，适合配壁纸；false = 正常带渐变底色
     default_value: "false"
     options:
-      - "true"
       - "false"
+      - "true"
   THEME:
     name: 背景主题
-    description: auto 自动（节假日暖色 / 周末蓝 / 平日白）/ fest 节日 / weekend 周末 / workday 平日
+    description: auto 自动判断（节假日暖色 / 周末蓝 / 平日白）。想固定就选 fest / weekend / workday
     default_value: auto
     options:
       - auto
@@ -51,68 +60,104 @@ env_schema:
       - workday
   GRID_ITEMS:
     name: 最多显示条数
-    description: 0 = 按画布自动计算；填数字则强制上限
+    description: >-
+      填 0 = 按组件大小自动计算（实测：小号 3 条、中号 5 条、大号 9 条）。
+      填数字（如 4）则强制上限，注意中号列表超过 5 条会显示不全
     default_value: "0"
   SHOW_TERMS:
     name: 显示二十四节气
+    description: true 显示小寒/立春/冬至等 24 个节气；false 只留传统和现代节日
     default_value: "true"
     options:
       - "true"
       - "false"
   SHOW_WESTERN:
     name: 显示现代节日
+    description: true 显示情人节/万圣夜/圣诞节等；false 只留法定与传统节日 + 节气
     default_value: "true"
     options:
       - "true"
       - "false"
+
+  # ── 主图：先填这三项，三个尺寸一起变 ──
   ART_COLOR:
     name: 主图颜色
-    description: 留空 = 深灰 #3A3A3C；也可以填 #RRGGBB，例如 #DD0207
+    description: >-
+      填十六进制颜色，前面带 #。留空 = 深灰 #3A3A3C。
+      常用：#DD0207 红、#2F5F8F 蓝、#3E6B3E 绿、#000000 黑、#8E8E93 浅灰、#A07820 金。
+      不支持写「红色」「black」这类英文名，必须是 # 开头的色号。
     default_value: ""
   ART_SIZE:
     name: 主图大小（通用）
-    description: 百分比 40~300，留空 = 100。下面三个分尺寸的优先
+    description: >-
+      填 40~300 的数字，代表百分比，100 = 默认大小。
+      80 小一点、120 大两成、150 大一半、200 大一倍。
+      留空 = 100。想只调某一个尺寸，用下面带 _S/_M/_L 的项，那边填了会盖过这里。
     default_value: ""
   ART_X:
-    name: 主图水平 X（通用）
-    description: 50 = 槽中心；数字越小越靠左，越大越靠右（可填 0~100 之外做微调）
+    name: 主图左右位置（通用）
+    description: >-
+      填数字，50 = 原本的位置（居中于图标区）。往左填小（30、20），往右填大（70、80）。
+      范围 0~100 够用，允许超出做微调。留空 = 50。
     default_value: ""
   ART_Y:
-    name: 主图垂直 Y（通用）
-    description: 50 = 槽中心；数字越小越靠上，越大越靠下
+    name: 主图上下位置（通用）
+    description: >-
+      填数字，50 = 原本的位置。往上填小（30、20），往下填大（70、80）。
+      注意这是相对图标区高度的百分比，不是屏幕坐标。留空 = 50。
     default_value: ""
+
+  # ── 小号单独调 ──
   ART_SIZE_S:
     name: 小号 · 主图大小
-    description: 只作用于小号，留空则用通用值
+    description: 只影响小号。填法同「主图大小（通用）」，例如 120。留空 = 用通用值
     default_value: ""
   ART_X_S:
-    name: 小号 · 水平 X
+    name: 小号 · 左右位置
+    description: 只影响小号。50 = 居中。留空 = 用通用值
     default_value: ""
   ART_Y_S:
-    name: 小号 · 垂直 Y
+    name: 小号 · 上下位置
+    description: 只影响小号。50 = 原本位置，数字越小越靠上。留空 = 用通用值
     default_value: ""
+
+  # ── 中号单独调 ──
   ART_SIZE_M:
     name: 中号 · 主图大小
-    description: 只作用于中号，默认 150（比槽宽大一半，会压到文字区但不推动排版）
+    description: >-
+      只影响中号，默认 150（比图标区大一半，会盖到右边的数字上，但不会把文字挤走）。
+      想小一点填 100，想更大填 180。
     default_value: "150"
   ART_X_M:
-    name: 中号 · 水平 X
+    name: 中号 · 左右位置
+    description: 只影响中号。50 = 原本位置，30 往左、70 往右。留空 = 用通用值
     default_value: ""
   ART_Y_M:
-    name: 中号 · 垂直 Y
+    name: 中号 · 上下位置
+    description: 只影响中号。50 = 原本位置，30 往上、70 往下。留空 = 用通用值
     default_value: ""
+
+  # ── 大号单独调 ──
   ART_SIZE_L:
     name: 大号 · 主图大小
+    description: 只影响大号。填法同「主图大小（通用）」。留空 = 用通用值
     default_value: ""
   ART_X_L:
-    name: 大号 · 水平 X
+    name: 大号 · 左右位置
+    description: 只影响大号。50 = 原本位置。留空 = 用通用值
     default_value: ""
   ART_Y_L:
-    name: 大号 · 垂直 Y
+    name: 大号 · 上下位置
+    description: 只影响大号。50 = 原本位置。留空 = 用通用值
     default_value: ""
+
   ANNIVERSARIES:
     name: 自定义纪念日
-    description: 用逗号分隔，格式「名字=05-20」每年循环，或「名字=2026-02-01」只算一次
+    description: >-
+      多个用逗号分隔。两种写法：
+      「结婚纪念=05-20」每年循环一次；
+      「搬家=2026-02-01」只算这一年。
+      例：结婚纪念=05-20,搬家=2026-02-01
     default_value: ""
 
 dns: {}
