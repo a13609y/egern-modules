@@ -1,0 +1,59 @@
+name: sync-foreign-domains
+
+on:
+  schedule:
+    - cron: "23 5 * * *" # 每天 05:23 UTC（北京时间 13:23）
+  workflow_dispatch:
+  push:
+    paths:
+      - "rulesets/foreign-domains/**"
+      - ".github/workflows/sync-foreign-domains.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-foreign-domains
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉上游 → 重生成规则集
+        run: python3 rulesets/foreign-domains/sync.py
+
+      - name: 静态校验
+        run: |
+          python3 - <<'PY'
+          import yaml, re
+          d = yaml.safe_load(open('rulesets/foreign-domains/foreign-domains.yaml'))
+          suf = d.get('domain_suffix_set') or []
+          assert len(suf) >= 10000, f'后缀条目太少: {len(suf)}'
+          assert len(suf) == len(set(suf)), '有重复后缀'
+          # 中国域名不该出现在国外集里
+          bad = [x for x in suf if x in ('qq.com','baidu.com','bilibili.com','taobao.com','jd.com')]
+          assert not bad, f'中国域名残留: {bad}'
+          # 危险项
+          assert 'com' not in suf and 'cn' not in suf, '出现裸 TLD'
+          for r in d.get('domain_regex_set') or []:
+              re.compile(r)
+          with open('rulesets/foreign-domains/foreign-domains.txt') as f:
+              assert f.read().count('DOMAIN-SUFFIX,') == len(suf)
+          print(f'ok: 后缀 {len(suf)} / 精确 {len(d.get("domain_set") or [])} / 正则 {len(d.get("domain_regex_set") or [])}')
+          PY
+
+      - name: 提交变化
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain rulesets/foreign-domains)" ]; then
+            git add rulesets/foreign-domains
+            git commit -m "chore(foreign-domains): 跟随上游更新 $(date -u +%F)"
+            git push
+            echo "::notice::已同步上游更新"
+          else
+            echo "上游无变化"
+          fi
