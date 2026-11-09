@@ -33,6 +33,7 @@ OUT_TXT = HERE / "foreign-domains.txt"
 TARBALL = "https://codeload.github.com/v2fly/domain-list-community/tar.gz/refs/heads/master"
 PROXY_TXT = "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/proxy.txt"
 DIRECT_TXT = "https://raw.githubusercontent.com/Loyalsoldier/clash-rules/release/direct.txt"
+ISO_CSV = "https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/all/all.csv"
 UA = "egern-rules-sync/1.0 (+https://github.com/a13609y/egern-modules-hub)"
 
 LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
@@ -180,6 +181,13 @@ def collect():
     cn_set = parse_clash_list(fetch(DIRECT_TXT))
     report.append(f"Loyalsoldier direct.txt（中国，用于剔除）: {len(cn_set)} 条")
 
+    # IP 侧：GeoIP 国家代码，取「除 CN 以外的全部国家/地区」
+    import csv
+    rows = list(csv.DictReader(fetch(ISO_CSV).splitlines()))
+    codes = sorted({r["alpha-2"].strip().upper() for r in rows if r.get("alpha-2")} - {"CN"})
+    codes = [c for c in codes if len(c) == 2 and c.isalpha()]
+    report.append(f"GeoIP 国家代码（剔除 CN）: {len(codes)} 个")
+
     suffix = (cn["suffix"] | proxy_set) - cn_set
     exact = cn["exact"] - cn_set
     exact -= suffix  # 精确项若已被后缀覆盖，丢掉
@@ -199,16 +207,20 @@ def collect():
 
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
-    return suffix, exact, cn["keyword"], good_re, report
+    return suffix, exact, cn["keyword"], good_re, codes, report
 
 
-def build(suffix, exact, keyword, regex):
+def build(suffix, exact, keyword, regex, codes):
     L, A = [], None
     A = L.append
     A("# 国外域名规则集（Egern rule_set）")
     A("# 自动生成，请勿手改。生成器：rulesets/foreign-domains/sync.py")
     A("# 上游：v2fly/domain-list-community · Loyalsoldier/clash-rules")
     A(f"# 后缀 {len(suffix)} / 精确 {len(exact)} / 关键词 {len(keyword)} / 正则 {len(regex)}")
+    A(f"# GeoIP 国家/地区 {len(codes)} 个（除 CN 以外的全部）")
+    A("")
+    A("# 只对「已知目的 IP」的流量生效，不为了让 IP 规则命中而额外做 DNS 解析")
+    A("no_resolve: true")
     A("")
     A("domain_suffix_set:")
     A("\n".join(f"  - {d}" for d in suffix))
@@ -225,10 +237,14 @@ def build(suffix, exact, keyword, regex):
         A("domain_regex_set:")
         A("\n".join("  - '" + r.replace("'", "''") + "'" for r in sorted(regex)))
         A("")
+    if codes:
+        A("geoip_set:")
+        A("\n".join(f"  - {c}" for c in codes))
+        A("")
     return "\n".join(L)
 
 
-def build_txt(suffix, exact, keyword, regex):
+def build_txt(suffix, exact, keyword, regex, codes):
     L = ["# 国外域名规则集（通用文本，DOMAIN-SUFFIX / DOMAIN）",
          "# 生成器：rulesets/foreign-domains/sync.py",
          f"# 后缀 {len(suffix)} / 精确 {len(exact)} / 关键词 {len(keyword)} / 正则 {len(regex)}", ""]
@@ -236,6 +252,7 @@ def build_txt(suffix, exact, keyword, regex):
     L += [f"DOMAIN,{d}" for d in exact]
     L += [f"DOMAIN-KEYWORD,{k}" for k in sorted(keyword)]
     L += [f"DOMAIN-REGEX,{r}" for r in sorted(regex)]
+    L += [f"GEOIP,{c}" for c in codes]
     return "\n".join(L) + "\n"
 
 
@@ -245,8 +262,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
-    suffix, exact, keyword, regex = None, None, None, None
-    suffix, exact, keyword, regex, report = collect()
+    suffix, exact, keyword, regex, codes, report = collect()
     for line in report:
         print("  " + line)
 
@@ -255,8 +271,8 @@ def main():
         print(f"ERROR: 只聚合到 {total} 条，明显异常，拒绝写入")
         return 2
 
-    y = build(suffix, exact, keyword, regex)
-    t = build_txt(suffix, exact, keyword, regex)
+    y = build(suffix, exact, keyword, regex, codes)
+    t = build_txt(suffix, exact, keyword, regex, codes)
     if a.dry_run:
         print(f"YAML 约 {len(y)/1024:.0f} KB，TXT 约 {len(t)/1024:.0f} KB")
         return 0
