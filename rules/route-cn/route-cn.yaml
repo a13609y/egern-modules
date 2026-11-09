@@ -1,0 +1,55 @@
+name: 分流（中国直连 · 其余走代理）
+description: 112000+ 条中国域名直连 + geoip CN 兜底，其余全部走代理。规则集每天跟随上游自动更新，不用手动维护。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules/tree/main/rules/route-cn
+manual: https://github.com/a13609y/egern-modules/blob/main/rules/route-cn/README.md
+icon: arrow.triangle.branch
+
+compat_arguments:
+  FINAL_POLICY: "Proxy"
+
+compat_arguments_desc: |
+  FINAL_POLICY 填你配置里「代理策略组」的名称，默认 Proxy。
+  如果你的组叫「节点选择」「手动选择」之类，改成那个名字即可。
+  找不到同名的组时，Egern 会把这条规则判为无效，流量会落到主配置的下一条规则。
+
+# 顺序很重要：局域网 → 中国域名 → 中国 IP → 其余走代理
+# 规则按书写顺序匹配，命中即停止。
+rules:
+  # 1. 局域网 / 私有地址，永远直连
+  - ip_cidr:
+      match: "10.0.0.0/8"
+      policy: DIRECT
+      no_resolve: true
+  - ip_cidr:
+      match: "172.16.0.0/12"
+      policy: DIRECT
+      no_resolve: true
+  - ip_cidr:
+      match: "192.168.0.0/16"
+      policy: DIRECT
+      no_resolve: true
+  - ip_cidr:
+      match: "127.0.0.0/8"
+      policy: DIRECT
+      no_resolve: true
+  - ip_cidr:
+      match: "169.254.0.0/16"
+      policy: DIRECT
+      no_resolve: true
+
+  # 2. 中国域名清单（远程规则集，每天自动更新）
+  - rule_set:
+      match: "https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/route-cn/cn-domains.yaml"
+      policy: DIRECT
+      update_interval: 86400
+      name: 中国域名
+
+  # 3. IP 兜底：域名没进清单、但解析到中国 IP 的，也直连
+  - geoip:
+      match: CN
+      policy: DIRECT
+
+  # 4. 其余全部走代理
+  - default:
+      policy: "{{{FINAL_POLICY}}}"
