@@ -1,8 +1,8 @@
 name: 分流（中国直连 · 其余走代理）
 description: 112000+ 条中国域名直连 + geoip CN 兜底，其余全部走代理。规则集每天跟随上游自动更新，不用手动维护。
 author: a13609y
-homepage: https://github.com/a13609y/egern-modules/tree/main/rules/route-cn
-manual: https://github.com/a13609y/egern-modules/blob/main/rules/route-cn/README.md
+homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/route-cn
+manual: https://github.com/a13609y/egern-modules-hub/blob/main/rules/route-cn/README.md
 icon: arrow.triangle.branch
 
 compat_arguments:
@@ -40,7 +40,7 @@ rules:
 
   # 2. 中国域名清单（远程规则集，每天自动更新）
   - rule_set:
-      match: "https://raw.githubusercontent.com/a13609y/egern-modules/main/rules/route-cn/cn-domains.yaml"
+      match: "https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/route-cn/cn-domains.yaml"
       policy: DIRECT
       update_interval: 86400
       name: 中国域名
