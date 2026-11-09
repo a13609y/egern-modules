@@ -1,0 +1,56 @@
+name: sync-route-cn
+
+on:
+  schedule:
+    - cron: "17 4 * * *" # 每天 04:17 UTC（北京时间 12:17）
+  workflow_dispatch:
+  push:
+    paths:
+      - "rules/route-cn/**"
+      - ".github/workflows/sync-route-cn.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-route-cn
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉上游 → 重生成规则集
+        run: python3 rules/route-cn/sync.py
+
+      - name: 静态校验
+        run: |
+          python3 - <<'PY'
+          import yaml
+          d = yaml.safe_load(open('rules/route-cn/cn-domains.yaml'))
+          items = d['domain_suffix_set']
+          assert len(items) >= 50000, f'条目太少: {len(items)}'
+          assert len(items) == len(set(items)), '有重复条目'
+          # 危险项：这些绝不能出现在直连清单里
+          bad = [x for x in items if x in ('com','net','org','io') or 'google.com' in x]
+          assert not bad, f'危险条目: {bad[:5]}'
+          m = yaml.safe_load(open('rules/route-cn/route-cn.yaml'))
+          assert m.get('rules'), 'route-cn.yaml 规则为空'
+          assert any(list(r)[0] == 'default' for r in m['rules']), '缺少兜底规则'
+          print(f'ok: {len(items)} 条中国域名，模块 {len(m["rules"])} 条规则')
+          PY
+
+      - name: 提交变化
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain rules/route-cn)" ]; then
+            git add rules/route-cn
+            git commit -m "chore(route-cn): 跟随上游更新 $(date -u +%F)"
+            git push
+            echo "::notice::已同步上游更新"
+          else
+            echo "上游无变化"
+          fi
