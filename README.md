@@ -18,7 +18,8 @@ rules/              规则 / URL 重写 / MITM / http_response 类模块
 ├── coolapk/        酷安去广告（自动跟随上游 zirawell/R-Store）
 ├── pinterest/      Pinterest 去广告（信息流 / 搜索 / 相关推荐推广 Pin）
 ├── fanqie-adblock/ 番茄小说去广告（穿山甲 / 广告计费 / 章末视频，跟随上游）
-├── route-cn/       分流规则：中国直连 · 其余走代理（11 万条域名清单）
+rulesets/           纯规则集（不含模块，直接给 rule_set 引用）
+├── foreign-domains/ 国外域名规则集（26,000+ 条，每天更新）
 scripts/            独立脚本（抓包、签到、通知等）
 docs/               说明与踩坑记录
 .github/workflows/  上游同步（每天拉一次上游，有变化才提交）
@@ -37,7 +38,7 @@ docs/               说明与踩坑记录
 | [酷安去广告](rules/coolapk/README.md) | 去酷安开屏 / 首页信息流 / 评论 / 商品推广广告，规则与脚本自动跟随上游 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/coolapk/coolapk.yaml` |
 | [Pinterest 去广告](rules/pinterest/README.md) | 去 Pinterest 信息流、搜索、相关推荐里的推广 Pin，拦广告与点击追踪域名 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest.yaml` |
 | [番茄小说去广告](rules/fanqie-adblock/README.md) | 穿山甲 / 广告计费 / 广告素材 / 章末视频，域名表每天跟随上游聚合 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/fanqie-adblock/fanqie-adblock.yaml` |
-| [分流规则](rules/route-cn/README.md) | 中国域名直连 + geoip CN 兜底，其余全部走代理；11 万条清单每天更新 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/route-cn/route-cn.yaml` |
+| [国外域名规则集](rulesets/foreign-domains/README.md) | 26,000+ 条国外域名（v2fly geolocation-!cn + Loyalsoldier proxy），已剔除中国域名；纯规则集，给 `rule_set` 引用 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rulesets/foreign-domains/foreign-domains.yaml` |
 
 ## 安装方式
 
