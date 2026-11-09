@@ -38,11 +38,15 @@ jobs:
           assert not bad, f'中国域名残留: {bad}'
           # 危险项
           assert 'com' not in suf and 'cn' not in suf, '出现裸 TLD'
+          assert d.get('no_resolve') is True, '缺少 no_resolve: true'
+          g = d.get('geoip_set') or []
+          assert len(g) >= 200, f'GeoIP 国家代码太少: {len(g)}'
+          assert 'CN' not in g, 'GeoIP 里出现了 CN'
           for r in d.get('domain_regex_set') or []:
               re.compile(r)
           with open('rulesets/foreign-domains/foreign-domains.txt') as f:
               assert f.read().count('DOMAIN-SUFFIX,') == len(suf)
-          print(f'ok: 后缀 {len(suf)} / 精确 {len(d.get("domain_set") or [])} / 正则 {len(d.get("domain_regex_set") or [])}')
+          print(f'ok: 后缀 {len(suf)} / 精确 {len(d.get("domain_set") or [])} / 正则 {len(d.get("domain_regex_set") or [])} / GeoIP {len(g)}')
           PY
 
       - name: 提交变化
