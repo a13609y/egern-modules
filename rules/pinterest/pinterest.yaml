@@ -1,20 +1,23 @@
 name: Pinterest 去广告
-description: 去掉 Pinterest 信息流、搜索结果里的推广 Pin（Promoted Pins），并拦掉明确的广告域名。v3 去掉了那条会误伤加载的 QUIC(UDP443) 拦截规则，改写只删广告条目、不改 JSON 结构。图片 CDN（i.pinimg.com / s.pinimg.com）不动。
+description: 只清 Pinterest 信息流与搜索结果里的推广 Pin（Promoted Pins）。v4 把脚本收窄到 /v3/feeds/ 与 /v3/search/ 两个路径，「更多类似内容」（/v3/visual_search/…/module/、/v3/pins/…/related/）完全不接手，不会再卡住那一块。图片 CDN 不动。
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/pinterest
 icon: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/icon.png
 
 # ---------------------------------------------------------------
-# v3.0.0（2026-11-10）
-# 相对 v2 的唯一实质变化：删掉「REJECT api.pinterest.com UDP 443」这条规则。
-# 原因：设备日志显示只有 /v3/callback/event/、/v3/experiences/ 这种小请求进入脚本，
-# 信息流与 related 的大请求完全没被脚本看到。QUIC 被 REJECT 后，部分客户端
-# 不会立刻回落到 TCP，而是一直重试 HTTP/3 → 请求挂住 → 骨架屏永远转圈。
-# 让 QUIC 走原生通道至少不会再卡住页面；能不能去广告用下面的实测结果判断。
+# v4.0.0（2026-11-10）
+# 设备实测结论（逐项 A/B）：
+#   · 只开 MITM、不挂脚本 → 「更多类似内容」正常
+#   · 挂脚本（无论 body_required true/false、无论改不改写）→ 这一块一直转圈
+# 日志显示「更多类似内容」的真实接口是
+#   /v3/visual_search/stela/pins/<id>/module/
+# 只要这个路径上挂了 http_response 脚本就会坏，跟改写逻辑无关。
+# 所以 v4 直接不接手这条路径：脚本 match 与脚本内部白名单都只放行
+# /v3/feeds/ 与 /v3/search/，其余一律不读 body、不改写。
+# 代价：类似内容里的广告会保留。换来的是页面能正常加载。
 # ---------------------------------------------------------------
 
 rules:
-  # 明确的广告 / 点击追踪域名
   - domain:
       match: ads.pinterest.com
       policy: REJECT
@@ -25,13 +28,11 @@ rules:
 mitm:
   hostnames:
     - api.pinterest.com
-    - www.pinterest.com
-    - in.pinterest.com
 
 scriptings:
   - http_response:
       name: pinterest_remove_ads
-      match: '^https?:\/\/([a-z0-9-]+\.)*pinterest\.com\/'
+      match: '^https?:\/\/api\d*\.pinterest\.com\/v\d*\/(feeds|search)\/'
       script_url: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest.js
       body_required: true
       max_size: 8388608
