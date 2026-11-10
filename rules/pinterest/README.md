@@ -1,67 +1,61 @@
 # Pinterest 去广告（Egern 模块）
 
-移除 Pinterest App 信息流、搜索结果、「更多类似内容」中的**推广 Pin（Promoted Pins）**，并拦掉广告与点击追踪域名。
+## 先说结论（2026-11-10 真机实测）
 
-## 订阅
+**在 Egern 上，只要对 `api.pinterest.com` 开启 MITM，「更多类似内容」这一块就会永久转圈。**
+
+实测证据：
+
+| 测试 | 结果 |
+| --- | --- |
+| 只开 MITM，脚本 match 指向不存在的域名（永不运行） | **仍然坏** |
+| 上游可莉版（Surge sgmodule 导入 Egern） | **同样坏** |
+| 全部模块关掉 | 正常 |
+
+所以问题不在改写逻辑，**在于这个域名被拦截本身**。Pinterest App 在 pin 详情页会请求
+`https://api.pinterest.com/v3/visual_search/stela/pins/<id>/module/`（这是「更多类似内容」的真实接口），
+响应经过 MITM 之后客户端就不认了。
+
+## 两种用法（二选一，不要同时装）
+
+### A. 纯域名版（推荐，零副作用）
+
+```
+https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest-domain-only.yaml
+```
+
+不启用 MITM、不挂脚本，只 REJECT 明确的广告/追踪域名（`ads` / `ad` / `ads-api` / `ct` / `trk`.pinterest.com）。
+页面完全正常，代价是瀑布流里的推广 Pin 去不掉（它们混在正常 JSON 里，不改写响应拿不掉）。
+
+### B. MITM 改写版（广告优先，有副作用）
 
 ```
 https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest.yaml
 ```
 
-Egern → 工具 → 模块 → `+` → 粘贴上面的地址 → 保存。
-**必须开启 MITM 并在「系统设置 → 通用 → VPN 与设备管理」里信任 Egern 证书**，否则 HTTPS 响应改不了。
+只命中 `/v\d/feeds/home/` 与 `/v\d/pins/<id>/related/modules/`（与上游可莉版一致），按 `is_promoted` 过滤 `data` 数组。
+首页、搜索的推广 Pin 会被去掉；**但 pin 详情页下方的「更多类似内容」会一直显示灰色骨架屏**。
+如果你用的是 Surge / Loon，那套上游原版在那边是正常工作的，问题只出现在 Egern。
 
-## v2.0.0 修了什么（重要）
+## 必须知道的两个 Egern 坑
 
-v1 实测问题：**广告确实没了，但用几分钟后，从首页点开一张图，下面「更多类似内容」一直转圈加载不出来**（刚装完那几分钟正常，是因为走的是本地缓存）。
-
-原因：v1 会把 `ads` / `promoted_pins` 这类**广告容器键整条 `delete`**，也会把按 id 索引的字典整条删项。客户端代码里往往直接写 `data.ads.forEach(...)` 或依赖该键存在，读到 `undefined` 就抛异常 → 整个响应作废，那一块 UI 就永远加载不出来。首页前几分钟没事，是因为缓存还在。
-
-v2 改成 **shape-preserving（保持结构）**：
-
-| v1 | v2 |
-| --- | --- |
-| `delete node["ads"]` | `node["ads"] = []`（键保留，值清空；对象则清成 `{}`） |
-| 字典项命中也删 | 只在非 `/related/` 路径下删，`/related/` 一律不动字典 |
-| 认 `ad_id` / `campaign_id` / `promotion_id` / `type` 启发式 | 默认只认明确的 `is_promoted` / `is_sponsored` / `is_ad === true`（启发式移到 `AGGRESSIVE` 开关后面） |
-
-## 它做了什么
-
-| 层 | 内容 |
-| --- | --- |
-| 响应改写 | `api.pinterest.com` 的 JSON 响应递归清理：抽掉带 `is_promoted` / `is_sponsored` / `is_ad` 标记的条目，广告容器键保留为空 `[]` / `{}` |
-| 域名拦截 | `ads.` `ad.` `ct.` `trk.pinterest.com` → REJECT（ct 是转化/点击追踪） |
-| 反规避 | 拒绝 `api.pinterest.com` 的 UDP 443，逼它走 TCP，否则 QUIC 绕过 MITM |
-
-**不动的**：`i.pinimg.com` / `s.pinimg.com` 图片 CDN、`log.pinterest.com`（App 自身埋点，拦了容易触发重试）。
-如果确实想连埋点一起拦，自己在模块里加一行 `domain: log.pinterest.com → REJECT`。
-
-## 为什么不用现成的
-
-GitHub 上没有 Egern 版，只有 Surge / Loon / Shadowrocket 的：
-
-- **可莉（iKeLee / kelee.one）** `Pinterest_remove_ads.sgmodule` —— 事实上的上游，几乎所有镜像站都是它。用的是 Surge/Loon 的 `http-response-jq`，只钉死两个路径：
-  `/v\d/feeds/home/` 和 `/v\d/pins/\d+/related/modules/`。App 接口一变就失效。
-- **renvder/Proxy_Tools** 的 Shadowrocket 脚本 —— 接口匹配放开到整个 `api.pinterest.com/v3/`，递归清理，但判断里塞了「任何键名含 promoted/sponsor/advert 就算广告」的激进启发式，会误伤正常内容。
-
-本模块用 Egern 原生 `http_response` 脚本：匹配整站、按明确字段判定、只在**确实删掉了东西**时才回写 body，其余一律原样放行（fail open）。
-
-## 失效了怎么办
-
-1. 先确认 MITM 证书已信任、模块已启用。
-2. 广告还在，但没有任何报错 → 大概率是 Pinterest 换了广告标记字段。打开 `pinterest.js`，把顶部 `var AGGRESSIVE = false;` 改成 `true` 再试（激进模式按键名含 promoted/sponsor/advert 判定，可能误伤，只是排查手段）。
-3. 接口换了域名（比如改成 `api2.pinterest.com`）→ 模块的 `match` 已经写成 `api\d*`，一般不用改；若真换了新域名，补 `mitm.hostnames` 与 `scriptings.match`。
-4. 「更多类似内容 / 相关推荐」加载不出来（灰色骨架屏一直转圈）→ 按下面的顺序定位，别一上来就改判定逻辑：
-   1. **先证明是脚本还是环境**：把 `pinterest.js` 顶部 `var MODE = 'clean';` 改成 `var MODE = 'log';`。这个模式下脚本只往 Egern 日志打一行（URL / content-type / 长度 / 结构骨架），**一个字节都不改写**。
-      - 变成 log 就正常 → 是改写逻辑弄坏了响应，把日志里 `RELATED` 那几行发到 issue。
-      - 还是加载不出来 → 跟脚本无关，看第 2、3 条。
-   2. **关掉 QUIC 拦截试试**：把 yaml 里那条 `REJECT api.pinterest.com UDP 443`（`and` 规则）注释掉。部分系统上 HTTP/3 被拒绝后 App 会反复重试 QUIC 而不立刻回落 TCP，表现就是「缓存用完后新内容加载不出来」。
-   3. **整模块关掉**对比一次：模块关掉后仍加载不出来，说明问题在 Pinterest 端/网络侧，不是这个模块。
-   日志位置：Egern → 日志 → 搜 `[pinterest]`。
-5. 白屏 / 加载失败 → 说明脚本弄坏了响应。直接关掉模块，把请求日志贴到 issue。
+1. **`script_url` 有 24 小时缓存**。改了脚本内容但文件名不变，Egern 会一直跑旧代码。要换文件名（比如 `pinterest-v5.js`）才能强制重新下载。
+2. **模块更新后要确认真的生效**：重新打开模块看一眼 `script_url` 指向的文件名是否是新版，必要时删掉模块重新添加。
 
 ## 文件
 
-- `pinterest.yaml` —— 模块本体（rules / mitm / scriptings）
-- `pinterest.js` —— Egern `http_response` 脚本，`export default async function (ctx)`，返回 `{ body }` 或 `undefined`
-- `test.mjs` —— 13 条用例（结构变体、字典索引、story 包装、非 JSON、空 body、误伤防护、1MB 性能），`node test.mjs` 直接跑
+- `pinterest-domain-only.yaml` —— 纯域名版（不 MITM）
+- `pinterest.yaml` —— MITM 改写版（v5.0.0，脚本 `pinterest-v5.js`）
+- `pinterest-v5.js` —— 改写脚本，只处理 feeds/home 与 pins/related/modules
+- `pinterest.js` / `pinterest-diag.js` —— 历史版本与诊断版（`MODE = 'log'`，只记日志不改写），排查问题时用
+
+## 上游参考
+
+可莉（kelee.one）的 Surge / Loon 模块是事实标准，几乎所有镜像都同源：
+
+```
+http-response-jq ^https:\/\/api\.pinterest\.com\/v\d\/feeds\/home\/\? '.data |= map(select(.is_promoted == false or .is_promoted == "false"))'
+http-response-jq ^https:\/\/api\.pinterest\.com\/v\d\/pins\/\d+\/related\/modules\/\? 同上
+```
+
+镜像：`axtyet/Luminous`、`ifflagged/Romeo`、`bunizao/Mirrored`。
