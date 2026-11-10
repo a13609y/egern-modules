@@ -1,127 +1,125 @@
-// Pinterest 去广告（Egern http_response 脚本）
+// Pinterest 去广告（Egern http_response 脚本）  v2.0.0
 //
-// 思路来源：
-//   · 可莉（iKeLee / kelee.one）的 Surge/Loon 版 http-response-jq 规则，只处理两个固定接口：
-//       /v\d/feeds/home/ 与 /v\d/pins/\d+/related/modules/ —— 新版 App 接口一变就失效。
-//   · renvder/Proxy_Tools 的 Shadowrocket 版脚本，放开了接口匹配、递归清理整棵 JSON。
-//   本脚本取两者之长：匹配整个 api.pinterest.com（接口路径变了也照样生效），
-//   但只在「确实删掉了东西」时才回写 body，其余一律原样放行（fail open）。
+// v2 的设计原则：只「抽掉广告条目」，绝不改变 JSON 的结构形状。
+// v1 会 delete 掉 ads / promoted_pins 这类容器键，也可能把按 id 索引的字典整条删掉；
+// 客户端若直接读 data.ads.forEach 或依赖某个键存在，就会抛异常 →
+// 「更多类似内容」整块加载不出来（首页前几分钟正常是因为走的是本地缓存）。
 //
-// 安全边界：
-//   · 只挂在 api.pinterest.com 的响应上，不碰 i.pinimg.com / s.pinimg.com 图片 CDN。
-//   · 解析失败、body 为空、content-type 不是 JSON、删完没变化 → 直接 return，不改一个字。
-//   · 不做域名级 REJECT（那部分在 yaml 的 rules 里，只针对明确的广告/点击追踪域名）。
+// v2 的具体变化：
+//   1. 容器键不再 delete，而是换成同类型的空值（数组给 []，对象给 {}），键一定存在。
+//   2. 默认只认明确的布尔标记 is_promoted / is_sponsored / is_ad === true，
+//      不再用 ad_id / campaign_id / promotion_id / advertiser / type 这些启发式（易误伤）。
+//   3. /related/ 路径下额外保守：连字典条目都不删，只过滤数组里的广告。
+//   4. 任何异常、非 JSON、删完没变化 → 原样放行（fail open）。
+//
+// 排查开关（都在下面常量区）：
+//   DEBUG = true        → 每次命中都往 Egern 日志打一行 URL 与删除数量（默认关闭）
+//   SKIP_RELATED = true → 完全不碰 /related/ 响应（类似内容里的广告会回来，但页面保证能加载）
+//   AGGRESSIVE = true   → 打开 v1 的启发式判定（只在广告漏网时临时用）
 
-// 激进模式：把任何键名含 promoted / sponsor / advert 且值非空的对象也算广告。
-// 默认关闭 —— 会误伤带 sponsor 字样的正常内容；官方接口字段改名导致失效时再打开。
+var DEBUG = false;
+var SKIP_RELATED = false;
 var AGGRESSIVE = false;
 
-// 明确的广告容器键：整块删掉
+// 广告容器键：键保留，值清空
 var CONTAINER_KEYS = {
-  ads: 1,
-  ad: 1,
-  ad_items: 1,
-  ad_slots: 1,
-  ad_units: 1,
-  promoted: 1,
-  promoted_pins: 1,
-  promoted_items: 1,
-  promoted_results: 1,
-  sponsored: 1,
-  sponsored_pins: 1,
-  sponsored_items: 1,
-  sponsored_results: 1,
-  shopping_ads: 1,
-  shopping_ad_items: 1,
-  product_ads: 1,
-  brand_ads: 1,
-  display_ads: 1,
+  ads: 1, ad: 1, ad_items: 1, ad_slots: 1, ad_units: 1,
+  promoted: 1, promoted_pins: 1, promoted_items: 1, promoted_results: 1,
+  sponsored: 1, sponsored_pins: 1, sponsored_items: 1, sponsored_results: 1,
+  shopping_ads: 1, shopping_ad_items: 1, product_ads: 1,
+  brand_ads: 1, display_ads: 1,
 };
 
-// 明确的广告类型（字符串枚举）
 var AD_TYPES = /^(ad|ads|ad_pin|promoted|promoted_pin|sponsored|sponsored_pin|shopping_ad|product_ad|brand_ad|display_ad)$/i;
 
-function isObj(v) {
-  return v && typeof v === 'object' && !Array.isArray(v);
+function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
+
+function log(msg) {
+  if (!DEBUG) return;
+  try { console.log('[pinterest] ' + msg); } catch (e) {}
 }
 
-// 单个节点是不是「一个广告」
-function isAdItem(item, depth) {
+// 是否是「广告条目」——默认只认明确标记
+function isAd(item, depth) {
   if (!isObj(item)) return false;
   depth = depth || 0;
 
   if (item.is_promoted === true || item.is_promoted === 'true') return true;
   if (item.is_promoted_pin === true || item.is_promoted_pin === 'true') return true;
-  if (item.is_ad === true || item.is_ad === 'true') return true;
   if (item.is_sponsored === true || item.is_sponsored === 'true') return true;
-  if (item.sponsored === true || item.promoted === true) return true;
+  if (item.is_ad === true || item.is_ad === 'true') return true;
 
-  if (typeof item.type === 'string' && AD_TYPES.test(item.type)) return true;
-
-  // 广告才有的一组 id，抽到任意一个即可（正常 pin 不会带这些）
-  if (item.ad_id || item.ad_account_id || item.ad_group_id ||
-      item.ad_creative_id || item.campaign_id || item.promotion_id) return true;
-
-  if (item.advertiser || item.sponsored_by || item.promoted_by || item.promotion) return true;
-
-  // 外层包一层 story/wrapper，真正的 pin 在下面
+  // 外层包一层 story / wrapper，真正的 pin 在下面
   if (depth < 3) {
-    if (isAdItem(item.pin, depth + 1)) return true;
-    if (isAdItem(item.origin_pin, depth + 1)) return true;
-    if (isAdItem(item.data, depth + 1)) return true;
-    if (isObj(item.data) && (item.data.is_promoted === true || item.data.sponsored === true)) return true;
+    if (isAd(item.pin, depth + 1)) return true;
+    if (isAd(item.origin_pin, depth + 1)) return true;
+    if (isAd(item.data, depth + 1)) return true;
   }
 
-  if (AGGRESSIVE) {
-    for (var k in item) {
-      if (!Object.prototype.hasOwnProperty.call(item, k)) continue;
-      var lk = String(k).toLowerCase();
-      if (lk.indexOf('promoted') === -1 && lk.indexOf('sponsor') === -1 && lk.indexOf('advert') === -1) continue;
-      var v = item[k];
-      if (v === true || (v && typeof v === 'object')) return true;
-      if (typeof v === 'string' && v.length > 0) return true;
-      if (typeof v === 'number' && v > 0) return true;
-    }
+  if (!AGGRESSIVE) return false;
+
+  // —— 以下只在 AGGRESSIVE 下生效（v1 的默认行为，容易误伤）——
+  if (item.sponsored === true || item.promoted === true) return true;
+  if (typeof item.type === 'string' && AD_TYPES.test(item.type)) return true;
+  if (item.ad_id || item.ad_account_id || item.ad_group_id ||
+      item.ad_creative_id || item.campaign_id || item.promotion_id) return true;
+  if (item.advertiser || item.sponsored_by || item.promoted_by || item.promotion) return true;
+  for (var k in item) {
+    if (!Object.prototype.hasOwnProperty.call(item, k)) continue;
+    var lk = String(k).toLowerCase();
+    if (lk.indexOf('promoted') === -1 && lk.indexOf('sponsor') === -1 && lk.indexOf('advert') === -1) continue;
+    var v = item[k];
+    if (v === true || isObj(v) || (Array.isArray(v) && v.length > 0)) return true;
+    if (typeof v === 'string' && v.length > 0) return true;
+    if (typeof v === 'number' && v > 0) return true;
   }
   return false;
 }
 
 var removed = 0;
 
-// 递归清理：边删边计数
-function clean(node, depth) {
+// shape-preserving clean：只抽广告条目，不改键的存在性
+function clean(node, depth, conservative) {
   if (depth > 40) return node;
 
   if (Array.isArray(node)) {
     var out = [];
     for (var i = 0; i < node.length; i++) {
       var el = node[i];
-      if (isAdItem(el)) { removed++; continue; }
-      out.push(clean(el, depth + 1));
+      if (isAd(el, 0)) { removed++; continue; }
+      out.push(clean(el, depth + 1, conservative));
     }
     return out;
   }
 
   if (isObj(node)) {
     var keys = Object.keys(node);
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (CONTAINER_KEYS[k]) { removed++; delete node[k]; continue; }
+    for (var j = 0; j < keys.length; j++) {
+      var k = keys[j];
       var v = node[k];
 
-      if (Array.isArray(v)) {
-        node[k] = clean(v, depth + 1);
+      // 广告容器：保留键，清空值
+      if (CONTAINER_KEYS[k] && v && typeof v === 'object' &&
+          ((Array.isArray(v) && v.length > 0) || (!Array.isArray(v) && Object.keys(v).length > 0)) &&
+          (Array.isArray(v) || isObj(v))) {
+        node[k] = Array.isArray(v) ? [] : {};
+        removed++;
         continue;
       }
 
-      // 形如 {"pins": {"<id>": {...}}} 的按 id 索引表：值本身就是广告项时整条删
+      if (Array.isArray(v)) { node[k] = clean(v, depth + 1, conservative); continue; }
+
       if (isObj(v)) {
-        var ids = Object.keys(v);
-        for (var j = 0; j < ids.length; j++) {
-          var id = ids[j];
-          if (CONTAINER_KEYS[id] || isAdItem(v[id])) { removed++; delete v[id]; continue; }
+        // 形如 {"pins": {"<id>": {...}}} 的索引表：/related/ 下保守，不动条目
+        if (!conservative) {
+          var ids = Object.keys(v);
+          for (var m = 0; m < ids.length; m++) {
+            var id = ids[m];
+            var child = v[id];
+            if (isObj(child) && isAd(child, 0)) { delete v[id]; removed++; }
+          }
         }
-        clean(v, depth + 1);
+        clean(v, depth + 1, conservative);
         continue;
       }
     }
@@ -132,6 +130,12 @@ function clean(node, depth) {
 export default async function (ctx) {
   try {
     if (!ctx || !ctx.response) return; // 只在响应阶段工作
+
+    var url = '';
+    try { url = String((ctx.request && (ctx.request.url || ctx.request.uri)) || ''); } catch (e) {}
+
+    var isRelated = /\/related\//i.test(url);
+    if (isRelated && SKIP_RELATED) { log('skip related ' + url); return; }
 
     // 只处理 JSON
     var headers = ctx.response.headers;
@@ -145,25 +149,26 @@ export default async function (ctx) {
     var raw = await ctx.response.text();
     if (!raw || raw.length < 4) return;
 
-    // 便宜的预判：整段里连关键词都没有就不用解析
-    if (!/is_promoted|is_sponsored|sponsored|ad_id|campaign_id|ad_account_id|"ads"\s*:|promoted_pins/.test(raw)) return;
+    // 便宜预判：连明确标记都没有就没必要解析
+    var need = AGGRESSIVE
+      ? /is_promoted|is_sponsored|"ads"\s*:|promoted_pins|ad_id|campaign_id/
+      : /is_promoted|is_sponsored|is_ad|"ads"\s*:|promoted_pins|sponsored_pins/;
+    if (!need.test(raw)) return;
 
     var obj;
-    try {
-      obj = JSON.parse(raw);
-    } catch (e) {
-      return; // 不是 JSON → 原样放行
-    }
+    try { obj = JSON.parse(raw); } catch (e) { return; }
 
     removed = 0;
-    obj = clean(obj, 0);
+    obj = clean(obj, 0, isRelated);
 
-    if (removed === 0) return; // 没删东西 → 一个字节都不改
-
+    if (removed === 0) { log('clean 0  ' + url); return; }
     var out = JSON.stringify(obj);
     if (out === raw) return;
+
+    log('removed ' + removed + ' len ' + raw.length + '->' + out.length + '  ' + url);
     return { body: out };
   } catch (e) {
-    return; // 任何异常 → fail open
+    log('error ' + (e && e.message));
+    return; // fail open
   }
 }
