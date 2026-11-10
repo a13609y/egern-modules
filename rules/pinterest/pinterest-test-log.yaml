@@ -1,0 +1,20 @@
+name: Pinterest 测试C（只记日志不改写）
+description: 诊断用，不是去广告模块。脚本挂上、只读取并打印结构，一个字节都不改写。用来区分「读 body 就坏」和「改写才坏」，并抓到 related 请求的真实 URL/大小/结构。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/pinterest
+
+mitm:
+  hostnames:
+    - api.pinterest.com
+
+scriptings:
+  - http_response:
+      name: pinterest_remove_ads
+      match: '^https?:\/\/api\d*\.pinterest\.com\/'
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest-diag.js
+      body_required: false
+      max_size: 33554432
+      timeout: 20
+      update_interval: 86400
+
+dns: {}
