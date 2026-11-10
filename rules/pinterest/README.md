@@ -51,9 +51,13 @@ GitHub 上没有 Egern 版，只有 Surge / Loon / Shadowrocket 的：
 1. 先确认 MITM 证书已信任、模块已启用。
 2. 广告还在，但没有任何报错 → 大概率是 Pinterest 换了广告标记字段。打开 `pinterest.js`，把顶部 `var AGGRESSIVE = false;` 改成 `true` 再试（激进模式按键名含 promoted/sponsor/advert 判定，可能误伤，只是排查手段）。
 3. 接口换了域名（比如改成 `api2.pinterest.com`）→ 模块的 `match` 已经写成 `api\d*`，一般不用改；若真换了新域名，补 `mitm.hostnames` 与 `scriptings.match`。
-4. 「更多类似内容 / 相关推荐」加载不出来 → v2 已针对性修过。若还有：
-   - 打开 `pinterest.js`，把 `var SKIP_RELATED = false;` 改成 `true` —— 该路径完全原样放行，内容一定能加载（代价是这部分广告会回来）。先确认这样是否就正常了，能正常说明还是改写逻辑的问题，把设成 `DEBUG = true` 后 Egern 日志里 `[pinterest]` 开头的行发我。
-   - 若换图片时偶发，注意 v1 之外的另一个嫌疑：`REJECT api.pinterest.com 的 UDP 443` 那条规则。部分系统上 HTTP/3 连接被拒后 App 会反复重试 QUIC 而不是立刻回落 TCP，表现就是「缓存用完后新内容加载不出来」。把那条 `and` 规则注释掉试一次即可判断。
+4. 「更多类似内容 / 相关推荐」加载不出来（灰色骨架屏一直转圈）→ 按下面的顺序定位，别一上来就改判定逻辑：
+   1. **先证明是脚本还是环境**：把 `pinterest.js` 顶部 `var MODE = 'clean';` 改成 `var MODE = 'log';`。这个模式下脚本只往 Egern 日志打一行（URL / content-type / 长度 / 结构骨架），**一个字节都不改写**。
+      - 变成 log 就正常 → 是改写逻辑弄坏了响应，把日志里 `RELATED` 那几行发到 issue。
+      - 还是加载不出来 → 跟脚本无关，看第 2、3 条。
+   2. **关掉 QUIC 拦截试试**：把 yaml 里那条 `REJECT api.pinterest.com UDP 443`（`and` 规则）注释掉。部分系统上 HTTP/3 被拒绝后 App 会反复重试 QUIC 而不立刻回落 TCP，表现就是「缓存用完后新内容加载不出来」。
+   3. **整模块关掉**对比一次：模块关掉后仍加载不出来，说明问题在 Pinterest 端/网络侧，不是这个模块。
+   日志位置：Egern → 日志 → 搜 `[pinterest]`。
 5. 白屏 / 加载失败 → 说明脚本弄坏了响应。直接关掉模块，把请求日志贴到 issue。
 
 ## 文件
