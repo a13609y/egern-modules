@@ -1,53 +1,37 @@
 name: Pinterest 去广告
-description: 去掉 Pinterest 信息流、搜索结果、“更多类似内容”里的推广 Pin（Promoted Pins），并拦掉广告与点击追踪域名。v2 只在「原样删除广告条目」的前提下改写，广告容器键一律保留为空值，不会让「更多类似内容」加载失败。图片 CDN（i.pinimg.com / s.pinimg.com）不动。
+description: 去掉 Pinterest 信息流、搜索结果里的推广 Pin（Promoted Pins），并拦掉明确的广告域名。v3 去掉了那条会误伤加载的 QUIC(UDP443) 拦截规则，改写只删广告条目、不改 JSON 结构。图片 CDN（i.pinimg.com / s.pinimg.com）不动。
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/pinterest
 icon: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/icon.png
 
 # ---------------------------------------------------------------
-# v2.0.0（2026-11-10）
-# 1. 主体是 scriptings 里的 http_response 脚本（pinterest.js）：
-#    匹配整个 api.pinterest.com，抽掉带 is_promoted / is_sponsored / is_ad 的条目。
-# 2. v2 关键修正：广告容器键（ads / promoted_pins / sponsored_pins …）不再 delete，
-#    而是清空成 [] 或 {}。v1 直接删键会让客户端读到 undefined → forEach 抛异常 →
-#    「从首页点开图片、下面更多类似内容」整块加载不出来。
-# 3. 下面的域名 REJECT 只针对明确的广告与点击追踪域名，不走 MITM。
-# 4. 必须开启 MITM 并在系统里信任 Egern 证书，否则改不了 HTTPS 响应。
+# v3.0.0（2026-11-10）
+# 相对 v2 的唯一实质变化：删掉「REJECT api.pinterest.com UDP 443」这条规则。
+# 原因：设备日志显示只有 /v3/callback/event/、/v3/experiences/ 这种小请求进入脚本，
+# 信息流与 related 的大请求完全没被脚本看到。QUIC 被 REJECT 后，部分客户端
+# 不会立刻回落到 TCP，而是一直重试 HTTP/3 → 请求挂住 → 骨架屏永远转圈。
+# 让 QUIC 走原生通道至少不会再卡住页面；能不能去广告用下面的实测结果判断。
 # ---------------------------------------------------------------
 
 rules:
-  # 广告 / 转化追踪域名，直接拒绝
+  # 明确的广告 / 点击追踪域名
   - domain:
       match: ads.pinterest.com
       policy: REJECT
   - domain:
       match: ad.pinterest.com
       policy: REJECT
-  - domain:
-      match: ct.pinterest.com
-      policy: REJECT
-  - domain:
-      match: trk.pinterest.com
-      policy: REJECT
-  # 阻止 api.pinterest.com 走 QUIC(HTTP/3)，否则 UDP 443 绕过 MITM，脚本永远不跑
-  - and:
-      match:
-        - protocol:
-            match: 'udp'
-        - dest_port:
-            match: '443'
-        - domain:
-            match: 'api.pinterest.com'
-      policy: REJECT
 
 mitm:
   hostnames:
     - api.pinterest.com
+    - www.pinterest.com
+    - in.pinterest.com
 
 scriptings:
   - http_response:
       name: pinterest_remove_ads
-      match: '^https?:\/\/api\d*\.pinterest\.com\/'
+      match: '^https?:\/\/([a-z0-9-]+\.)*pinterest\.com\/'
       script_url: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest.js
       body_required: true
       max_size: 8388608
