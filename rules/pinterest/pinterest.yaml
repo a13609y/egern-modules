@@ -1,21 +1,19 @@
 name: Pinterest 去广告
-description: 去掉 Pinterest 信息流、搜索结果、“更多类似内容”里的推广 Pin（Promoted Pins），并拦掉广告与点击追踪域名。图片 CDN（i.pinimg.com / s.pinimg.com）不动。接口解析失败时原样放行，不会白屏。
+description: 跟随上游可莉模块自动同步。只清 /v\d/feeds/home/ 与 /v\d/pins/<id>/related/modules/ 里的推广 Pin（is_promoted），其余路径不接手、不改写。图片 CDN 不动。
 author: a13609y
 homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/pinterest
 icon: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/icon.png
 
 # ---------------------------------------------------------------
-# 说明
-# 1. 主体是 scriptings 里的 http_response 脚本（pinterest.js）：
-#    匹配整个 api.pinterest.com，递归清掉带 is_promoted / is_sponsored /
-#    ad_id / campaign_id 等标记的条目以及 ads / promoted_pins 这类广告容器。
-#    （可莉的 Surge 版只钉死两个固定路径，App 换接口就失效，这里改宽了匹配。）
-# 2. 下面的域名 REJECT 只针对明确的广告与点击追踪域名，不走 MITM。
-# 3. 必须开启 MITM 并在系统里信任 Egern 证书，否则改不了 HTTPS 响应。
+# 本文件由 sync.py 自动生成（.github/workflows/sync-pinterest.yml 每天跑一次）。
+# 上游：https://raw.githubusercontent.com/axtyet/Luminous/main/Repcz/Surge/Module/Kelee/Pinterest_remove_ads.sgmodule
+# 上游版本：2026-06-01 17:11:35
+# 路径白名单：
+  #   api\.pinterest\.com\/v\d\/feeds\/home\/
+  #   api\.pinterest\.com\/v\d\/pins\/\d+\/related\/modules\/
 # ---------------------------------------------------------------
 
 rules:
-  # 广告 / 转化追踪域名，直接拒绝
   - domain:
       match: ads.pinterest.com
       policy: REJECT
@@ -28,16 +26,6 @@ rules:
   - domain:
       match: trk.pinterest.com
       policy: REJECT
-  # 阻止 api.pinterest.com 走 QUIC(HTTP/3)，否则 UDP 443 绕过 MITM，脚本永远不跑
-  - and:
-      match:
-        - protocol:
-            match: 'udp'
-        - dest_port:
-            match: '443'
-        - domain:
-            match: 'api.pinterest.com'
-      policy: REJECT
 
 mitm:
   hostnames:
@@ -46,11 +34,11 @@ mitm:
 scriptings:
   - http_response:
       name: pinterest_remove_ads
-      match: '^https?:\/\/api\d*\.pinterest\.com\/'
+      match: '^https?:\/\/((?:api\.pinterest\.com\/v\d\/feeds\/home\/)|(?:api\.pinterest\.com\/v\d\/pins\/\d+\/related\/modules\/))'
       script_url: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest.js
       body_required: true
       max_size: 8388608
-      timeout: 10
+      timeout: 20
       update_interval: 86400
 
 dns: {}
