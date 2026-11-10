@@ -1,0 +1,20 @@
+name: Pinterest 测试D（只开 MITM，脚本永不命中）
+description: 诊断用。开启 api.pinterest.com 的 MITM，但挂的脚本 match 指向一个绝不会请求的域名，永远不会运行。用来判断「光是 MITM 拦截这个域名会不会让类似内容加载失败」。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/pinterest
+
+mitm:
+  hostnames:
+    - api.pinterest.com
+
+scriptings:
+  - http_response:
+      name: pinterest_never_match
+      match: '^https?://never-match\.example\.com/'
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest-diag.js
+      body_required: false
+      max_size: 1024
+      timeout: 5
+      update_interval: 3600
+
+dns: {}
