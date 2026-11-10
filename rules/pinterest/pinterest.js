@@ -1,4 +1,4 @@
-// Pinterest 去广告（Egern http_response 脚本）  v2.1.0
+// Pinterest 去广告（Egern http_response 脚本）  v4.0.0
 //
 // ⚠️ 排查用版本：新增 MODE 开关，可以先「只记日志、不改写」把问题定位下来。
 //
@@ -14,6 +14,9 @@
 //   4. 异常 / 非 JSON / 删完没变化 → 原样放行（fail open）。
 
 var MODE = 'clean';
+// v4：只处理信息流 / 搜索结果。其余路径（尤其是 /v3/visual_search/…/module/，
+// 就是「更多类似内容」的真实接口）一律不接手，连 body 都不读。
+var ALLOW_PATH = /\/v\d+\/(feeds|search)\//i;
 var SKIP_RELATED = false;   // true → /related/ 响应完全原样放行
 var AGGRESSIVE = false;     // true → 启用 v1 的启发式判定（易误伤，仅临时排查）
 
@@ -136,6 +139,8 @@ export default async function (ctx) {
     try { url = String((ctx.request && (ctx.request.url || ctx.request.uri)) || ''); } catch (e) {}
 
     var isRelated = /related/i.test(url);
+
+    if (!ALLOW_PATH.test(url)) { log('skip-path  ' + url.slice(0, 100)); return; }
 
     var headers = ctx.response.headers;
     var ct = '';
