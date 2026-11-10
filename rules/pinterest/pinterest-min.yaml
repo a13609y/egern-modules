@@ -1,0 +1,14 @@
+name: Pinterest 去广告（极简版）
+description: 只拦两个纯广告域名 ads.pinterest.com / ad.pinterest.com，不 MITM、不挂脚本、不碰追踪与埋点。用于二分定位「到底哪条规则会让类似内容加载不出来」。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/pinterest
+
+rules:
+  - domain:
+      match: ads.pinterest.com
+      policy: REJECT
+  - domain:
+      match: ad.pinterest.com
+      policy: REJECT
+
+dns: {}
