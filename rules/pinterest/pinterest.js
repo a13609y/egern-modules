@@ -1,27 +1,22 @@
-// Pinterest 去广告（Egern http_response 脚本）  v2.0.0
+// Pinterest 去广告（Egern http_response 脚本）  v2.1.0
 //
-// v2 的设计原则：只「抽掉广告条目」，绝不改变 JSON 的结构形状。
-// v1 会 delete 掉 ads / promoted_pins 这类容器键，也可能把按 id 索引的字典整条删掉；
-// 客户端若直接读 data.ads.forEach 或依赖某个键存在，就会抛异常 →
-// 「更多类似内容」整块加载不出来（首页前几分钟正常是因为走的是本地缓存）。
+// ⚠️ 排查用版本：新增 MODE 开关，可以先「只记日志、不改写」把问题定位下来。
 //
-// v2 的具体变化：
-//   1. 容器键不再 delete，而是换成同类型的空值（数组给 []，对象给 {}），键一定存在。
-//   2. 默认只认明确的布尔标记 is_promoted / is_sponsored / is_ad === true，
-//      不再用 ad_id / campaign_id / promotion_id / advertiser / type 这些启发式（易误伤）。
-//   3. /related/ 路径下额外保守：连字典条目都不删，只过滤数组里的广告。
-//   4. 任何异常、非 JSON、删完没变化 → 原样放行（fail open）。
+// MODE:
+//   'clean' 正常改写（默认）
+//   'log'   只解析并打日志，一个字节都不改 —— 用来判断「到底是不是脚本改坏的」
+//   'off'   完全不干活，立刻返回
 //
-// 排查开关（都在下面常量区）：
-//   DEBUG = true        → 每次命中都往 Egern 日志打一行 URL 与删除数量（默认关闭）
-//   SKIP_RELATED = true → 完全不碰 /related/ 响应（类似内容里的广告会回来，但页面保证能加载）
-//   AGGRESSIVE = true   → 打开 v1 的启发式判定（只在广告漏网时临时用）
+// v2.0.0 的关键设计（别改回去）：
+//   1. 广告容器键不 delete，改成空值 [] 或 {}，键一定存在。
+//   2. 默认只认明确布尔标记 is_promoted / is_sponsored / is_ad === true。
+//   3. /related/ 路径保守处理：连字典条目都不删，只过滤数组里的广告。
+//   4. 异常 / 非 JSON / 删完没变化 → 原样放行（fail open）。
 
-var DEBUG = false;
-var SKIP_RELATED = false;
-var AGGRESSIVE = false;
+var MODE = 'clean';
+var SKIP_RELATED = false;   // true → /related/ 响应完全原样放行
+var AGGRESSIVE = false;     // true → 启用 v1 的启发式判定（易误伤，仅临时排查）
 
-// 广告容器键：键保留，值清空
 var CONTAINER_KEYS = {
   ads: 1, ad: 1, ad_items: 1, ad_slots: 1, ad_units: 1,
   promoted: 1, promoted_pins: 1, promoted_items: 1, promoted_results: 1,
@@ -35,11 +30,9 @@ var AD_TYPES = /^(ad|ads|ad_pin|promoted|promoted_pin|sponsored|sponsored_pin|sh
 function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
 
 function log(msg) {
-  if (!DEBUG) return;
   try { console.log('[pinterest] ' + msg); } catch (e) {}
 }
 
-// 是否是「广告条目」——默认只认明确标记
 function isAd(item, depth) {
   if (!isObj(item)) return false;
   depth = depth || 0;
@@ -49,7 +42,6 @@ function isAd(item, depth) {
   if (item.is_sponsored === true || item.is_sponsored === 'true') return true;
   if (item.is_ad === true || item.is_ad === 'true') return true;
 
-  // 外层包一层 story / wrapper，真正的 pin 在下面
   if (depth < 3) {
     if (isAd(item.pin, depth + 1)) return true;
     if (isAd(item.origin_pin, depth + 1)) return true;
@@ -58,7 +50,6 @@ function isAd(item, depth) {
 
   if (!AGGRESSIVE) return false;
 
-  // —— 以下只在 AGGRESSIVE 下生效（v1 的默认行为，容易误伤）——
   if (item.sponsored === true || item.promoted === true) return true;
   if (typeof item.type === 'string' && AD_TYPES.test(item.type)) return true;
   if (item.ad_id || item.ad_account_id || item.ad_group_id ||
@@ -78,7 +69,6 @@ function isAd(item, depth) {
 
 var removed = 0;
 
-// shape-preserving clean：只抽广告条目，不改键的存在性
 function clean(node, depth, conservative) {
   if (depth > 40) return node;
 
@@ -98,10 +88,8 @@ function clean(node, depth, conservative) {
       var k = keys[j];
       var v = node[k];
 
-      // 广告容器：保留键，清空值
       if (CONTAINER_KEYS[k] && v && typeof v === 'object' &&
-          ((Array.isArray(v) && v.length > 0) || (!Array.isArray(v) && Object.keys(v).length > 0)) &&
-          (Array.isArray(v) || isObj(v))) {
+          ((Array.isArray(v) && v.length > 0) || (!Array.isArray(v) && Object.keys(v).length > 0))) {
         node[k] = Array.isArray(v) ? [] : {};
         removed++;
         continue;
@@ -110,7 +98,6 @@ function clean(node, depth, conservative) {
       if (Array.isArray(v)) { node[k] = clean(v, depth + 1, conservative); continue; }
 
       if (isObj(v)) {
-        // 形如 {"pins": {"<id>": {...}}} 的索引表：/related/ 下保守，不动条目
         if (!conservative) {
           var ids = Object.keys(v);
           for (var m = 0; m < ids.length; m++) {
@@ -127,48 +114,69 @@ function clean(node, depth, conservative) {
   return node;
 }
 
+// 日志用：描述结构骨架（不打印内容，避免刷屏/泄露）
+function sketch(node, depth) {
+  if (depth > 2) return '...';
+  if (Array.isArray(node)) return '[' + node.length + (node.length ? '×' + sketch(node[0], depth + 1) : '') + ']';
+  if (isObj(node)) {
+    var ks = Object.keys(node);
+    var shown = ks.slice(0, 8).map(function (k) { return k + ':' + sketch(node[k], depth + 1); });
+    return '{' + shown.join(',') + (ks.length > 8 ? ',…+' + (ks.length - 8) : '') + '}';
+  }
+  if (typeof node === 'string') return '"' + (node.length > 24 ? node.slice(0, 24) + '…' : node) + '"';
+  return String(node);
+}
+
 export default async function (ctx) {
   try {
-    if (!ctx || !ctx.response) return; // 只在响应阶段工作
+    if (!ctx || !ctx.response) return;
+    if (MODE === 'off') return;
 
     var url = '';
     try { url = String((ctx.request && (ctx.request.url || ctx.request.uri)) || ''); } catch (e) {}
 
-    var isRelated = /\/related\//i.test(url);
-    if (isRelated && SKIP_RELATED) { log('skip related ' + url); return; }
+    var isRelated = /related/i.test(url);
 
-    // 只处理 JSON
     var headers = ctx.response.headers;
     var ct = '';
     try {
       if (headers && typeof headers.get === 'function') ct = headers.get('content-type') || '';
       else if (headers && headers['content-type']) ct = headers['content-type'];
     } catch (e) {}
-    if (ct && String(ct).toLowerCase().indexOf('json') === -1) return;
 
-    var raw = await ctx.response.text();
-    if (!raw || raw.length < 4) return;
+    // log 模式下，连 JSON 判定都记下来（诊断第一现场）
+    var raw = '';
+    try { raw = await ctx.response.text(); } catch (e) { raw = ''; }
 
-    // 便宜预判：连明确标记都没有就没必要解析
+    var tag = (isRelated ? 'RELATED ' : 'FEED ') + url.slice(0, 120) + ' ct=' + ct + ' len=' + (raw ? raw.length : 0);
+
+    if (!raw || raw.length < 4) { log('empty  ' + tag); return; }
+    if (ct && String(ct).toLowerCase().indexOf('json') === -1) { log('skip-nonjson  ' + tag); return; }
+
+    var obj;
+    try { obj = JSON.parse(raw); } catch (e) { log('BAD-JSON  ' + tag); return; }
+
+    var shape = sketch(obj, 0);
+    if (MODE === 'log') { log('shape  ' + tag + '  shape=' + shape); return; }
+
+    if (isRelated && SKIP_RELATED) { log('skip-related  ' + tag); return; }
+
     var need = AGGRESSIVE
       ? /is_promoted|is_sponsored|"ads"\s*:|promoted_pins|ad_id|campaign_id/
       : /is_promoted|is_sponsored|is_ad|"ads"\s*:|promoted_pins|sponsored_pins/;
-    if (!need.test(raw)) return;
-
-    var obj;
-    try { obj = JSON.parse(raw); } catch (e) { return; }
+    if (!need.test(raw)) { log('no-ads-marker  ' + tag + '  shape=' + shape); return; }
 
     removed = 0;
     obj = clean(obj, 0, isRelated);
 
-    if (removed === 0) { log('clean 0  ' + url); return; }
+    if (removed === 0) { log('removed=0  ' + tag); return; }
     var out = JSON.stringify(obj);
     if (out === raw) return;
 
-    log('removed ' + removed + ' len ' + raw.length + '->' + out.length + '  ' + url);
+    log('REMOVED ' + removed + ' ' + raw.length + '->' + out.length + '  ' + tag);
     return { body: out };
   } catch (e) {
-    log('error ' + (e && e.message));
-    return; // fail open
+    log('ERROR ' + (e && e.message));
+    return;
   }
 }
