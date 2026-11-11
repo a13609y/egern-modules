@@ -1,0 +1,72 @@
+name: sync-real-ip
+
+# 只读 raw.githubusercontent（CDN），不调用 api.github.com、不带 token，
+# 一天一次约 20 个请求 —— 不会触发 GitHub 的 API 限流 / 风控。
+on:
+  schedule:
+    - cron: "17 4 * * *" # 每天 04:17 UTC（北京时间 12:17）
+  workflow_dispatch:
+  push:
+    paths:
+      - "rules/real-ip-domains/**"
+      - ".github/workflows/sync-real-ip.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-real-ip
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉上游 → 重生成模块
+        run: python3 rules/real-ip-domains/sync.py
+
+      - name: 静态校验
+        run: |
+          python3 - <<'PY'
+          import re, yaml
+
+          def load(p):
+              d = yaml.safe_load(open(p, encoding='utf-8'))
+              lst = d.get('real_ip_domains') or []
+              assert lst, f'{p}: real_ip_domains 为空'
+              assert all(isinstance(x, str) and x.strip() == x for x in lst), f'{p}: 条目格式不对'
+              assert len(lst) == len(set(x.lower() for x in lst)), f'{p}: 有重复条目'
+              bad = [x for x in lst if any(c in x for c in ' "\'') or not re.fullmatch(
+                  r'(\*|\*[a-z0-9?\-]+|[a-z0-9?\-]+)(\.(\*|\*[a-z0-9?\-]+|[a-z0-9?\-]+))+', x, re.I)]
+              assert not bad, f'{p}: 非法条目 {bad[:5]}'
+              return lst
+
+          core = load('rules/real-ip-domains/real-ip-domains.yaml')
+          extra = load('rules/real-ip-domains/real-ip-domains-extra.yaml')
+          assert len(core) >= 80, f'核心只有 {len(core)} 条，明显偏少'
+          assert len(extra) >= 50, f'扩展只有 {len(extra)} 条，明显偏少'
+          assert not (set(map(str.lower, core)) & set(map(str.lower, extra))), '两个模块出现重叠条目'
+          joined = ' '.join(core + extra).lower()
+          for must in ('*.lan', '*.local', 'stun', 'ntp', '*.push.apple.com', 'msftconnecttest'):
+              assert must in joined, f'缺少必备条目：{must}'
+          # 银行业东西一旦混进来就是事故
+          for n in ('abchina', 'psbc', 'unionpay', 'alipay', 'icbc.com', 'cmbchina', 'chinatelecom', '10086'):
+              assert n not in joined, f'银行/运营商域名泄漏：{n}'
+          print(f'yaml ok: 核心 {len(core)} 条 / 扩展 {len(extra)} 条')
+          PY
+
+      - name: 提交变化
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain rules/real-ip-domains)" ]; then
+            git add rules/real-ip-domains
+            git commit -m "chore(real-ip): 跟随上游更新 $(date -u +%F)"
+            git push
+            echo "::notice::已同步上游更新"
+          else
+            echo "上游无变化"
+          fi
