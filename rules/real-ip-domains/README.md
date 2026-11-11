@@ -1,5 +1,12 @@
 # 真实 IP 域名（real_ip_domains）
 
+> **⚠️ 已合并，本模块不再更新。**
+> 请改用 **[通用增强（合一版）](../general-enhanced/)**：
+> `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/general-enhanced/general-enhanced.yaml`
+> 它包含本模块的全部内容（绕过隧道 + 真实 IP + MITM 排除），每天自动跟随上游。
+> 本文件仅保留给旧订阅兼容。
+
+
 开了 **Fake IP** 之后，Egern 对域名返回的是本地虚拟地址（`198.18.x.x` 一类，不可路由），
 承载连接时再用这个假地址反查域名交给代理。这对绝大多数域名都是最稳的做法，不会漏 IP、也不会污染。
 
