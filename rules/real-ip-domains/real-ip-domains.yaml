@@ -1,0 +1,127 @@
+name: 真实 IP 域名（核心）
+description: >-
+    该用真实 IP 的域名：局域网/本地、门户检测、STUN、主机联机、NTP 时间同步、
+    Apple 推送与 iCloud、NAS/远程访问。开了 Fake IP 后这些功能才不会解析失败。
+    名单由 rules/real-ip-domains/sync.py 每天从 GitHub 上游聚合。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/real-ip-domains
+manual: https://github.com/a13609y/egern-modules-hub/blob/main/rules/real-ip-domains/README.md
+icon: network
+
+# 本文件由 sync.py 自动生成，请勿手改（改了下次同步会被覆盖）。
+# 共 101 条，全部来自 GitHub 上游聚合：
+#   Egern 配置的 real_ip_domains + Surge 的 always-real-ip
+# 语义：这些域名不用 Fake IP，Egern 会真的去上游解析、返回真实 IP（仍走隧道）。
+# 银行 / 运营商 / 支付类不在本模块 —— 它们要进 bypass_tunnel_proxy，见 rules/lan-bypass。
+
+real_ip_domains:
+  # ── 局域网 / 本地 / 内网命名：10 条
+  - "*.home.arpa"
+  - "*.ipv6.microsoft.com"
+  - "*.lan"
+  - "*.local"
+  - "*.localdomain"
+  - "*.localhost"
+  - "*.routerlogin.net"
+  - "localhost.*.qq.com"
+  - "localhost.sec.qq.com"
+  - "xbox.ipv6.microsoft.com"
+
+  # ── 门户检测 · STUN · 主机联机（Nintendo / PlayStation / Xbox / Battle.net）：40 条
+  - "*.*.*.srv.nintendo.net"
+  - "*.*.stun.playstation.net"
+  - "*.*.xboxlive.com"
+  - "*.accounts.nintendo.com"
+  - "*.battle.net"
+  - "*.battlenet.com"
+  - "*.battlenet.com.cn"
+  - "*.blizzard.com"
+  - "*.blzstatic.cn"
+  - "*.blzstatic.com"
+  - "*.eshop.nintendo.net"
+  - "*.logon.battle.net"
+  - "*.logon.battlenet.com.cn"
+  - "*.msftconnecttest.com"
+  - "*.msftncsi.com"
+  - "*.n.nintendo.net"
+  - "*.nintendo.net"
+  - "*.playstation.com"
+  - "*.playstation.net"
+  - "*.srv.nintendo.net"
+  - "*.stun.*"
+  - "*.stun.l.google.com"
+  - "*.stun.playstation.net"
+  - "*.stun.services.mozilla.com"
+  - "*.turn.cloudflare.com"
+  - "*.xbox.com"
+  - "*.xboxlive.com"
+  - "detectportal.firefox.com"
+  - "global.stun.twilio.com"
+  - "global.turn.twilio.com"
+  - "msftconnecttest.com"
+  - "msftncsi.com"
+  - "network-test.debian.org"
+  - "resolver1.opendns.com"
+  - "stun.*"
+  - "stun.*.*"
+  - "stun.*.*.*"
+  - "stun.l.google.com"
+  - "xbox.*.*.microsoft.com"
+  - "xbox.*.microsoft.com"
+
+  # ── NTP / 时间同步：35 条
+  - "*.ntp.org"
+  - "*.ntp.org.cn"
+  - "*.pool.ntp.org"
+  - "*.time.edu.cn"
+  - "ntp.*.com"
+  - "ntp.aliyun.com"
+  - "ntp.ntsc.ac.cn"
+  - "ntp.tencent.com"
+  - "ntp1.*.com"
+  - "ntp2.*.com"
+  - "ntp3.*.com"
+  - "ntp4.*.com"
+  - "ntp5.*.com"
+  - "ntp6.*.com"
+  - "ntp7.*.com"
+  - "ntp?.*.com"
+  - "pool.ntp.org"
+  - "time.*.apple.com"
+  - "time.*.com"
+  - "time.*.edu.cn"
+  - "time.*.gov"
+  - "time.android.com"
+  - "time.apple.com"
+  - "time.asia.apple.com"
+  - "time.nist.gov"
+  - "time.windows.com"
+  - "time1.*.com"
+  - "time1.cloud.tencent.com"
+  - "time2.*.com"
+  - "time3.*.com"
+  - "time4.*.com"
+  - "time5.*.com"
+  - "time6.*.com"
+  - "time7.*.com"
+  - "time?.*.com"
+
+  # ── Apple 推送 / iCloud / iTunes：9 条
+  - "*.push.apple.com"
+  - "api.push.apple.com"
+  - "gateway.push.apple.com"
+  - "idmsa.apple.com"
+  - "mesu.apple.com"
+  - "ocsp.apple.com"
+  - "ocsp2.apple.com"
+  - "setup.icloud.com"
+  - "swscan.apple.com"
+
+  # ── NAS / 远程访问 / 内网穿透：7 条
+  - "*.gl-inet.com"
+  - "*.myqnapcloud.com"
+  - "*.rustdesk.com"
+  - "*.synology.me"
+  - "*.tailscale.net"
+  - "*.unifi.ui.com"
+  - "find.synology.com"
