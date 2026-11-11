@@ -1,5 +1,12 @@
 # 通用增强（General Enhanced）
 
+> **⚠️ 已合并，本模块不再更新。**
+> 请改用 **[通用增强（合一版）](../general-enhanced/)**：
+> `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/general-enhanced/general-enhanced.yaml`
+> 它包含本模块的全部内容（绕过隧道 + 真实 IP + MITM 排除），每天自动跟随上游。
+> 本文件仅保留给旧订阅兼容。
+
+
 三件事合在一个模块里：
 
 1. **绕过隧道**（`bypass_tunnel_proxy`）——私有网段、组播、广播、链路本地、本地域名不走隧道，直接物理链路发出。
