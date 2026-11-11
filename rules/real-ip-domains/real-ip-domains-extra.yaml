@@ -1,0 +1,94 @@
+name: 真实 IP 域名（扩展）
+description: >-
+    核心之外的补充档：音乐/影音版权校验、第三方游戏平台、内网穿透与工具域。
+    按需装：装了能修好对应 App 的联机/版权问题，不装也不会影响上网。
+    名单由 rules/real-ip-domains/sync.py 每天从 GitHub 上游聚合。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/real-ip-domains
+manual: https://github.com/a13609y/egern-modules-hub/blob/main/rules/real-ip-domains/README.md
+icon: network
+
+# 本文件由 sync.py 自动生成，请勿手改（改了下次同步会被覆盖）。
+# 共 72 条，全部来自 GitHub 上游聚合：
+#   Egern 配置的 real_ip_domains + Surge 的 always-real-ip
+# 语义：这些域名不用 Fake IP，Egern 会真的去上游解析、返回真实 IP（仍走隧道）。
+# 银行 / 运营商 / 支付类不在本模块 —— 它们要进 bypass_tunnel_proxy，见 rules/lan-bypass。
+
+real_ip_domains:
+  # ── 音乐 / 影音版权校验：27 条
+  - "*-appboot.netflix.com"
+  - "*.126.net"
+  - "*.mcdn.bilivideo.cn"
+  - "*.music.163.com"
+  - "*.music.migu.cn"
+  - "*.prod.cloud.netflix.com"
+  - "*.xiami.com"
+  - "*.y.qq.com"
+  - "amobile.music.tc.qq.com"
+  - "api-jooxtt.sanook.com"
+  - "api.bilibili.com"
+  - "api.joox.com"
+  - "appboot.netflix.com"
+  - "aqqmusic.tc.qq.com"
+  - "dl.stream.qqmusic.qq.com"
+  - "isure.stream.qqmusic.qq.com"
+  - "joox.com"
+  - "mobileoc.music.tc.qq.com"
+  - "music.163.com"
+  - "music.migu.cn"
+  - "music.taihe.com"
+  - "musicapi.taihe.com"
+  - "songsearch.kugou.com"
+  - "streamoc.music.tc.qq.com"
+  - "trackercdn.kugou.com"
+  - "www.bilibili.com"
+  - "y.qq.com"
+
+  # ── 第三方游戏平台（Steam / EA / Epic / Riot / Wargaming）：17 条
+  - "*.bnet.cn"
+  - "*.bnetshop.com.cn"
+  - "*.ea.com"
+  - "*.epicgames.com"
+  - "*.origin.com"
+  - "*.pscdn.io"
+  - "*.psnprofiles.com"
+  - "*.riotgames.com"
+  - "*.steamcommunity.com"
+  - "*.steamcontent.com"
+  - "*.steampowered.com"
+  - "*.steamstatic.com"
+  - "*.wargaming.net"
+  - "*.wggames.cn"
+  - "*.wotgame.cn"
+  - "*.wowsgame.cn"
+  - "lancache.steamcontent.com"
+
+  # ── 工具 / 免登录 / 其他：28 条
+  - "*-update.xoyocdn.com"
+  - "*.apple-dns.net"
+  - "*.blz-contentstack.com"
+  - "*.jjvip8.com"
+  - "*.myqcloud.com"
+  - "*.nip.io"
+  - "*.nvidia.com"
+  - "*.safebrowsing.apple"
+  - "*.sslip.io"
+  - "a.w.bilicdn1.com"
+  - "activityapi.huya.com"
+  - "activityapi.huya.com.w.cdngslb.com"
+  - "app.yinxiang.com"
+  - "cable.auth.com"
+  - "crl3.digicert.com"
+  - "doh.pub"
+  - "injections.adguard.org"
+  - "local.adguard.org"
+  - "ocsp.digicert.com"
+  - "ocsp.int-x3.letsencrypt.org"
+  - "proxy.golang.org"
+  - "r3.o.lencr.org"
+  - "router.asus.com"
+  - "speech.platform.bing.com"
+  - "speedtest.cros.wr.pvp.net"
+  - "teredo.*.*"
+  - "teredo.*.*.*"
+  - "www.douyu.com"
