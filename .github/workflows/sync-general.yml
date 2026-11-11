@@ -1,0 +1,88 @@
+name: sync-general
+
+# 只读 raw.githubusercontent（CDN），不调用 api.github.com、不带 token，
+# 一天一次约 20 个请求 —— 不会触发 GitHub 的 API 限流 / 风控。
+on:
+  schedule:
+    - cron: "23 5 * * *" # 每天 05:23 UTC（北京时间 13:23）
+  workflow_dispatch:
+  push:
+    paths:
+      - "rules/general-enhanced/**"
+      - ".github/workflows/sync-general.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-general
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉上游 → 重生成模块
+        run: python3 rules/general-enhanced/sync.py
+
+      - name: 静态校验
+        run: |
+          python3 - <<'PY'
+          import re, yaml
+
+          P = 'rules/general-enhanced/general-enhanced.yaml'
+          d = yaml.safe_load(open(P, encoding='utf-8'))
+
+          # —— 结构 ——
+          for k in ('name', 'description', 'bypass_tunnel_proxy', 'real_ip_domains', 'mitm'):
+              assert d.get(k), f'缺少 {k}'
+          bypass = d['bypass_tunnel_proxy']
+          real = d['real_ip_domains']
+          mitm = d['mitm']['hostnames']['excludes']
+
+          assert len(bypass) >= 35, f'bypass 只有 {len(bypass)} 条'
+          assert len(real) >= 120, f'real_ip 只有 {len(real)} 条'
+          assert len(mitm) >= 10, f'mitm 排除只有 {len(mitm)} 条'
+
+          # —— 模板开关必须保留 ——
+          assert any('TAILSCALE_CIDR' in x for x in bypass), 'TAILSCALE_CIDR 占位丢了'
+          assert d['env_schema'].get('TAILSCALE_CIDR'), 'env_schema 丢了'
+
+          # —— 格式 / 去重 ——
+          assert len(real) == len(set(x.lower() for x in real)), 'real_ip 有重复条目'
+          def ok(x):
+              return isinstance(x, str) and x.strip() == x and not any(c in x for c in ' "\'') \
+                  and re.fullmatch(r'(\*|\*[a-z0-9?\-]+|[a-z0-9?\-]+)(\.(\*|\*[a-z0-9?\-]+|[a-z0-9?\-]+))+', x, re.I)
+          bad = [x for x in real if not ok(x)]
+          assert not bad, f'非法条目 {bad[:5]}'
+
+          # —— 必备条目 ——
+          j = ' '.join(real).lower()
+          for must in ('*.lan', '*.local', 'stun', 'ntp', '*.push.apple.com', 'msftconnecttest'):
+              assert must in j, f'缺少必备条目：{must}'
+
+          # —— 银行/运营商不能漏进 real_ip（它们必须在 bypass）——
+          banks = ('abchina', 'psbc', 'unionpay', 'alipay', 'icbc.com', 'cmbchina',
+                   'chinatelecom', '10086', '10010')
+          leaked = [n for n in banks if n in j]
+          assert not leaked, f'银行/运营商域名泄漏进 real_ip：{leaked}'
+          assert 'abchina' in ' '.join(bypass).lower(), '银行卡域名应该待在 bypass 段'
+
+          print(f'yaml ok: bypass {len(bypass)} / real_ip {len(real)} / mitm {len(mitm)}')
+          PY
+
+      - name: 提交变化
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain rules/general-enhanced)" ]; then
+            git add rules/general-enhanced
+            git commit -m "chore(general-enhanced): 跟随上游更新 $(date -u +%F)"
+            git push
+            echo "::notice::已同步上游更新"
+          else
+            echo "上游无变化"
+          fi
