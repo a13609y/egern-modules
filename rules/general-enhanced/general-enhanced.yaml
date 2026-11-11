@@ -1,0 +1,311 @@
+name: 通用增强（合一版 · General Enhanced）
+description: >-
+  三合一：①私有网段/组播/链路本地/本地域名不走隧道 ②门户检测、STUN、主机联机、NTP、
+  推送、NAS、音乐版权等用真实 IP 解析（不用 Fake IP）③证书钉扎与系统关键服务不做 MITM。
+  真实 IP 名单每天从 GitHub 上游聚合重生成；绕过与 MITM 段静态维护。
+author: a13609y
+homepage: https://github.com/a13609y/egern-modules-hub/tree/main/rules/general-enhanced
+manual: https://github.com/a13609y/egern-modules-hub/blob/main/rules/general-enhanced/README.md
+icon: network
+
+compat_arguments:
+  TAILSCALE_CIDR: "0.0.0.0/32"
+
+env_schema:
+  TAILSCALE_CIDR:
+    name: 兼容 Tailscale / ZeroTier
+    description: >-
+      默认「不绕过」：100.64.0.0/10 照常由 Egern 处理，tailnet 主机可以正常走策略
+      （0.0.0.0/32 只是空占位，不匹配任何真实流量）。改成 100.64.0.0/10 则整段直连、不进隧道，
+      只有在不用组网、又想让运营商 CGNAT 地址完全脱管时才需要。
+    options:
+      - "0.0.0.0/32"
+      - "100.64.0.0/10"
+
+# ============================================================
+# 本文件的 real_ip_domains 段由 sync.py 自动生成，请勿手改
+# （改了下次同步会被覆盖）。bypass_tunnel_proxy 与 mitm 段是静态的，
+# 要改请改 sync.py 里的 BYPASS_GROUPS / MITM_GROUPS。
+# 当前：绕过 41 条 · 真实 IP 173 条 · MITM 排除 12 条
+# ============================================================
+
+# ============================================================
+# 1. 绕过隧道（连接层豁免）
+# 命中这里的目标不进入隧道：不解析 HTTP、不劫持 DNS、不做 Fake IP，直接由物理链路发出。
+# 组播 / 广播 / 链路本地只能走这一层，rules 里的 DIRECT 兜不住。
+# ============================================================
+bypass_tunnel_proxy:
+  # —— 本地与内网名字 ——
+  - "localhost"
+  - "*.localhost"
+  - "*.local"
+  - "*.lan"
+  - "*.direct"
+  - "*.home.arpa"
+
+  # —— IPv4 私有 / 保留 ——
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+  - "192.168.122.1/32"
+  - "169.254.0.0/16"
+  - "127.0.0.0/8"
+
+  # —— CGNAT / Apple 自有段 ——
+  - "{{{TAILSCALE_CIDR}}}"
+  - "17.0.0.0/8"
+
+  # —— IPv4 组播 / 广播（mDNS、SSDP、DHCP、NetBIOS） ——
+  - "224.0.0.0/4"
+  - "255.255.255.255/32"
+
+  # —— IPv6 ——
+  - "::1/128"
+  - "fe80::/10"
+  - "fc00::/7"
+  - "ff00::/8"
+
+  # —— 连通性检测与崩溃上报（被劫持会误判「无网络」） ——
+  - "captive.apple.com"
+  - "*.captive.apple.com"
+  - "e.crashlytics.com"
+  - "*.crashlytics.com"
+
+  # —— 会主动检测代理、直连成功率更高的国内 App（不需要可整段删） ——
+  - "www.baidu.com"
+  - "www.163.com"
+  - "passenger.t3go.cn"
+  - "gate.lagou.com"
+  - "www.shanbay.com"
+  - "www.boc.com"
+  - "www.abchina.com.cn"
+  - "*.abchina.com.cn"
+  - "www.ccb.com"
+  - "*.ccb.com"
+  - "yunbusiness.ccb.com"
+  - "*.psbc.com"
+  - "login-service.mobile-bank.psbc.com"
+  - "mobile-bank.psbc.com"
+  - "wxh.wo.cn"
+  - "emm.deltaww.com.cn"
+  - "id6.me"
+
+# ============================================================
+# 2. 真实 IP 解析（仍走隧道，但不用 Fake IP）
+# Fake IP 会让这些服务拿到虚假地址：联机匹配失败、CDN 调度错、版权/音质校验失败、
+# 免流自服务认不出手机号、NTP 校时错乱、推送注册失败。
+# 名单每天从上游聚合；银行 / 运营商 / 支付不在这里（它们要的是上面第 1 段）。
+# ============================================================
+real_ip_domains:
+  # ── 局域网 / 本地 / 内网命名：10 条
+  - "*.home.arpa"
+  - "*.ipv6.microsoft.com"
+  - "*.lan"
+  - "*.local"
+  - "*.localdomain"
+  - "*.localhost"
+  - "*.routerlogin.net"
+  - "localhost.*.qq.com"
+  - "localhost.sec.qq.com"
+  - "xbox.ipv6.microsoft.com"
+
+  # ── 门户检测 · STUN · 主机联机（Nintendo / PlayStation / Xbox / Battle.net）：40 条
+  - "*.*.*.srv.nintendo.net"
+  - "*.*.stun.playstation.net"
+  - "*.*.xboxlive.com"
+  - "*.accounts.nintendo.com"
+  - "*.battle.net"
+  - "*.battlenet.com"
+  - "*.battlenet.com.cn"
+  - "*.blizzard.com"
+  - "*.blzstatic.cn"
+  - "*.blzstatic.com"
+  - "*.eshop.nintendo.net"
+  - "*.logon.battle.net"
+  - "*.logon.battlenet.com.cn"
+  - "*.msftconnecttest.com"
+  - "*.msftncsi.com"
+  - "*.n.nintendo.net"
+  - "*.nintendo.net"
+  - "*.playstation.com"
+  - "*.playstation.net"
+  - "*.srv.nintendo.net"
+  - "*.stun.*"
+  - "*.stun.l.google.com"
+  - "*.stun.playstation.net"
+  - "*.stun.services.mozilla.com"
+  - "*.turn.cloudflare.com"
+  - "*.xbox.com"
+  - "*.xboxlive.com"
+  - "detectportal.firefox.com"
+  - "global.stun.twilio.com"
+  - "global.turn.twilio.com"
+  - "msftconnecttest.com"
+  - "msftncsi.com"
+  - "network-test.debian.org"
+  - "resolver1.opendns.com"
+  - "stun.*"
+  - "stun.*.*"
+  - "stun.*.*.*"
+  - "stun.l.google.com"
+  - "xbox.*.*.microsoft.com"
+  - "xbox.*.microsoft.com"
+
+  # ── NTP / 时间同步：35 条
+  - "*.ntp.org"
+  - "*.ntp.org.cn"
+  - "*.pool.ntp.org"
+  - "*.time.edu.cn"
+  - "ntp.*.com"
+  - "ntp.aliyun.com"
+  - "ntp.ntsc.ac.cn"
+  - "ntp.tencent.com"
+  - "ntp1.*.com"
+  - "ntp2.*.com"
+  - "ntp3.*.com"
+  - "ntp4.*.com"
+  - "ntp5.*.com"
+  - "ntp6.*.com"
+  - "ntp7.*.com"
+  - "ntp?.*.com"
+  - "pool.ntp.org"
+  - "time.*.apple.com"
+  - "time.*.com"
+  - "time.*.edu.cn"
+  - "time.*.gov"
+  - "time.android.com"
+  - "time.apple.com"
+  - "time.asia.apple.com"
+  - "time.nist.gov"
+  - "time.windows.com"
+  - "time1.*.com"
+  - "time1.cloud.tencent.com"
+  - "time2.*.com"
+  - "time3.*.com"
+  - "time4.*.com"
+  - "time5.*.com"
+  - "time6.*.com"
+  - "time7.*.com"
+  - "time?.*.com"
+
+  # ── Apple 推送 / iCloud / iTunes：10 条
+  - "*.apple-dns.net"
+  - "*.push.apple.com"
+  - "api.push.apple.com"
+  - "gateway.push.apple.com"
+  - "idmsa.apple.com"
+  - "mesu.apple.com"
+  - "ocsp.apple.com"
+  - "ocsp2.apple.com"
+  - "setup.icloud.com"
+  - "swscan.apple.com"
+
+  # ── NAS / 远程访问 / 内网穿透：7 条
+  - "*.gl-inet.com"
+  - "*.myqnapcloud.com"
+  - "*.rustdesk.com"
+  - "*.synology.me"
+  - "*.tailscale.net"
+  - "*.unifi.ui.com"
+  - "find.synology.com"
+
+  # ── 音乐 / 影音版权校验：31 条
+  - "*-appboot.netflix.com"
+  - "*.126.net"
+  - "*.mcdn.bilivideo.cn"
+  - "*.music.163.com"
+  - "*.music.migu.cn"
+  - "*.prod.cloud.netflix.com"
+  - "*.xiami.com"
+  - "*.y.qq.com"
+  - "a.w.bilicdn1.com"
+  - "activityapi.huya.com"
+  - "activityapi.huya.com.w.cdngslb.com"
+  - "amobile.music.tc.qq.com"
+  - "api-jooxtt.sanook.com"
+  - "api.bilibili.com"
+  - "api.joox.com"
+  - "appboot.netflix.com"
+  - "aqqmusic.tc.qq.com"
+  - "dl.stream.qqmusic.qq.com"
+  - "isure.stream.qqmusic.qq.com"
+  - "joox.com"
+  - "mobileoc.music.tc.qq.com"
+  - "music.163.com"
+  - "music.migu.cn"
+  - "music.taihe.com"
+  - "musicapi.taihe.com"
+  - "songsearch.kugou.com"
+  - "streamoc.music.tc.qq.com"
+  - "trackercdn.kugou.com"
+  - "www.bilibili.com"
+  - "www.douyu.com"
+  - "y.qq.com"
+
+  # ── 第三方游戏平台（Steam / EA / Epic / Riot / Wargaming）：18 条
+  - "*.bnet.cn"
+  - "*.bnetshop.com.cn"
+  - "*.ea.com"
+  - "*.epicgames.com"
+  - "*.origin.com"
+  - "*.pscdn.io"
+  - "*.psnprofiles.com"
+  - "*.riotgames.com"
+  - "*.steamcommunity.com"
+  - "*.steamcontent.com"
+  - "*.steampowered.com"
+  - "*.steamstatic.com"
+  - "*.wargaming.net"
+  - "*.wggames.cn"
+  - "*.wotgame.cn"
+  - "*.wowsgame.cn"
+  - "lancache.steamcontent.com"
+  - "speedtest.cros.wr.pvp.net"
+
+  # ── 工具 / 免登录 / 其他：22 条
+  - "*-update.xoyocdn.com"
+  - "*.blz-contentstack.com"
+  - "*.jjvip8.com"
+  - "*.myqcloud.com"
+  - "*.nip.io"
+  - "*.nvidia.com"
+  - "*.safebrowsing.apple"
+  - "*.sslip.io"
+  - "app.yinxiang.com"
+  - "cable.auth.com"
+  - "crl3.digicert.com"
+  - "doh.pub"
+  - "injections.adguard.org"
+  - "local.adguard.org"
+  - "ocsp.digicert.com"
+  - "ocsp.int-x3.letsencrypt.org"
+  - "proxy.golang.org"
+  - "r3.o.lencr.org"
+  - "router.asus.com"
+  - "speech.platform.bing.com"
+  - "teredo.*.*"
+  - "teredo.*.*.*"
+
+# ============================================================
+# 3. MITM 排除
+# 这些域名即使被主配置的 MITM 命中也不解密：证书钉扎的 App 一解密就白屏/断连。
+# 只声明排除，不会替你把任何域名放进 MITM。
+# ============================================================
+mitm:
+  hostnames:
+    excludes:
+      # —— 证书钉扎，解密即断连 ——
+      - "*.facebook.com"
+      - "*.instagram.com"
+      - "*.twitter.com"
+      - "*.snssdk.com"
+      - "*.pstatp.com"
+
+      # —— 系统关键服务，不能碰 ——
+      - "gateway.icloud.com"
+      - "gateway.icloud.com.cn"
+      - "weather-data.apple.com"
+      - "buy.itunes.apple.com"
+      - "play.itunes.apple.com"
+      - "play-edge.itunes.apple.com"
+      - "ios.chat.openai.com"
