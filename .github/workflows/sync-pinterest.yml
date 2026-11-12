@@ -28,7 +28,7 @@ jobs:
       - name: 静态校验
         run: |
           python3 - <<'PY'
-          import re, sys, yaml
+          import json, re, sys, yaml
 
           yml = open('rules/pinterest/pinterest.yaml', encoding='utf-8').read()
           js = open('rules/pinterest/pinterest.js', encoding='utf-8').read()
@@ -44,7 +44,7 @@ jobs:
           assert 'is_promoted' in js, '生成的脚本缺少过滤字段'
           assert 'export default' in js, '生成的脚本缺少默认导出'
 
-          paths = re.findall(r'^\s+"(.+?)",?$', js.split('PATH_SOURCES = [')[1].split(']')[0], re.M)
+          paths = [json.loads(m) for m in re.findall(r'"(?:[^"\\]|\\.)*"', js.split('PATH_SOURCES = [')[1].split('];')[0])]
           assert len(paths) == 2, f'上游路径应为 2 条，实际 {len(paths)} 条'
           for p in paths:
               assert 'api\\.pinterest\\.com' in p, f'路径不在 api.pinterest.com: {p}'

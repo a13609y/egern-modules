@@ -230,6 +230,30 @@ dns: {{}}
 """
 
 
+def validate(js, yml):
+    """生成产物自检：不合预期就抛异常，绝不落盘。
+
+    注意 PATH_SOURCES 里的路径是 json.dumps 过的，反斜杠在文件里是双份
+    （api\\\\.pinterest\\\\.com），所以必须先 json.loads 回单份再比对。
+    """
+    block = js.split("PATH_SOURCES = [")[1].split("];")[0]
+    paths = [json.loads(m) for m in re.findall(r'"(?:[^"\\]|\\.)*"', block)]
+    if len(paths) != 2:
+        raise AssertionError(f"上游路径应为 2 条，实际 {len(paths)} 条: {paths}")
+    for p in paths:
+        if "api\\.pinterest\\.com" not in p:
+            raise AssertionError(f"路径不在 api.pinterest.com: {p}")
+        if not p.startswith("api\\.pinterest\\.com\\/v\\d\\/"):
+            raise AssertionError(f"路径不在 /v\\d/ 下: {p}")
+    for frag in ("is_promoted", "export default", "function allowed"):
+        if frag not in js:
+            raise AssertionError(f"脚本缺少 {frag}")
+    for frag in ("hostnames:", "script_url:", "match:", "http_response:"):
+        if frag not in yml:
+            raise AssertionError(f"yaml 缺少 {frag}")
+    return paths
+
+
 def main():
     last_err = None
     for kind, url in SOURCES:
@@ -255,6 +279,7 @@ def main():
 
         js = build_js(paths, jqs, hosts or ["api.pinterest.com"], upstream_date, url)
         yml = build_yaml(paths, hosts or ["api.pinterest.com"], upstream_date, url)
+        validate(js, yml)
 
         changed = False
         for name, content in (("pinterest.js", js), ("pinterest.yaml", yml)):
