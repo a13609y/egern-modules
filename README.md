@@ -20,6 +20,7 @@ rules/              规则 / URL 重写 / MITM / http_response 类模块
 ├── coolapk/        酷安去广告（自动跟随上游 zirawell/R-Store）
 ├── pinterest/      Pinterest 去广告（信息流 / 搜索 / 相关推荐推广 Pin）
 ├── fanqie-adblock/ 番茄小说去广告（穿山甲 / 广告计费 / 章末视频，跟随上游）
+├── pingme/         PingMe 签到 + 看视频奖励（拆成两条独立定时任务，可单独开关）
 rulesets/           纯规则集（不含模块，直接给 rule_set 引用）
 ├── foreign-domains/ 国外域名规则集（26,000+ 条，每天更新）
 scripts/            独立脚本（抓包、签到、通知等）
@@ -40,6 +41,7 @@ docs/               说明与踩坑记录
 | [酷安去广告](rules/coolapk/README.md) | 去酷安开屏 / 首页信息流 / 评论 / 商品推广广告，规则与脚本自动跟随上游 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/coolapk/coolapk.yaml` |
 | [Pinterest 去广告](rules/pinterest/README.md) | 去 Pinterest 信息流、搜索、相关推荐里的推广 Pin，拦广告与点击追踪域名 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pinterest/pinterest.yaml` |
 | [番茄小说去广告](rules/fanqie-adblock/README.md) | 穿山甲 / 广告计费 / 广告素材 / 章末视频，域名表每天跟随上游聚合 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/fanqie-adblock/fanqie-adblock.yaml` |
+| [PingMe 签到 + 看视频奖励](rules/pingme/README.md) | 签到（滚动签到小时 + 当天追赶制）与看视频得奖励拆成两条独立定时任务，各自 cron / 超时 / 开关，支持多账号 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/pingme/pingme.yaml` |
 | [国外域名规则集](rulesets/foreign-domains/README.md) | 26,000+ 条国外域名（v2fly geolocation-!cn + Loyalsoldier proxy），已剔除中国域名；纯规则集，给 `rule_set` 引用 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rulesets/foreign-domains/foreign-domains.yaml` |
 
 > 注：`lan-bypass`、`real-ip-domains`、`real-ip-domains-extra` 已合并为 **通用增强（合一版）**，旧订阅仍可用但不再更新。
