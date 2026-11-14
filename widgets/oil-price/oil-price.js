@@ -1,5 +1,5 @@
 /**
- * ⛽ 全国实时油价小组件 v4.0.1（Egern 模块版 · 小/中/大三尺寸重排）
+ * ⛽ 全国实时油价小组件 v4.0.2（Egern 模块版 · 小/中/大三尺寸重排）
  * 数据源：http://m.qiyoujiage.com/（省份 / 城市页面）
  * 原作者：Egern 群友 tg://user?id=5122789128 · 二次修改 iBL3ND
  *
@@ -15,7 +15,9 @@
  * ─────────────────────────────────────────────────────────────
  * - 「最近调价」的日期 / 方向 / 幅度来自站点页面 tishi 文本（真实）
  * - 「预计下轮窗口」= 最近调价日 + 10 个工作日（国内成品油调价规则推算，界面上标注「预计」）
- * - 走势图只画本脚本真实抓到的价格快照（每变化一次记一「轮」），不足 2 个点显示「暂无历史」
+ * - 走势图只画本脚本真实抓到的价格快照：点日期取网页给出的最近调价日（真实），价格没变不新增点；
+ *   不足 2 个点显示「暂无历史」——m.qiyoujiage.com 的省份页只有当前价 + 最近一次调价文案，
+ *   /tz/YYYY.shtml 只有调价日期表，站点确实不提供逐轮历史价格，所以不画推测曲线。
  * - 站点不提供原油变化率，故「下一轮涨跌幅度」不预测，显示「暂无数据」
  */
 
@@ -338,18 +340,24 @@ export default async function (ctx) {
         }
       }
 
-      // 真实价格快照：同一天重复抓取只更新，价格变化才追加一条「轮次」
-      const today = YMD(now);
+      // 真实价格快照：点日期用网页给出的最近调价日（真实），无则用今天。
+      // 同日期只更新数值；价格没变不新增点（不重复填点、不伪造历史）。
+      let pd = YMD(now);
+      if (adj && adj.month && adj.day) {
+        const ad = new Date(now.getFullYear(), adj.month - 1, adj.day);
+        if (ad.getTime() - now.getTime() > 45 * 86400000) ad.setFullYear(now.getFullYear() - 1);
+        if (ad.getTime() <= now.getTime()) pd = YMD(ad);
+      }
       const snap = { p92: prices.p92, p95: prices.p95, p98: prices.p98, diesel: prices.diesel };
       if (hist.length === 0) {
-        hist.push({ d: today, v: snap });
+        hist.push({ d: pd, v: snap });
       } else {
         const lastRec = hist[hist.length - 1];
         const changed = ["p92", "p95", "p98", "diesel"].some(
           (k) => snap[k] !== null && lastRec.v[k] !== null && lastRec.v[k] !== undefined && Math.abs(snap[k] - lastRec.v[k]) >= 0.005
         );
-        if (lastRec.d === today) lastRec.v = snap;
-        else if (changed) hist.push({ d: today, v: snap });
+        if (lastRec.d === pd) lastRec.v = snap;
+        else if (changed) hist.push({ d: pd > lastRec.d ? pd : YMD(now), v: snap });
         else { /* 价格未变：不新增点，避免用重复点人为拉长曲线 */ }
       }
       if (hist.length > 12) hist = hist.slice(hist.length - 12);
@@ -405,7 +413,11 @@ export default async function (ctx) {
       .map((h) => ({ v: h.v[FUEL_KEY], d: h.d }));
     if (series.length < 2) series = [];
   }
-  const seriesLabels = series.map((p, i) => `第${i + 1}轮`);
+  const mdLabel = (d) => {
+    const part = String(d).split("-");
+    return part.length === 3 ? `${+part[1]}/${+part[2]}` : String(d);
+  };
+  const seriesLabels = series.map((p) => mdLabel(p.d));
 
   // ════════════════════════════════════════════════════════════
   // 5. 通用构件（只用官方支持字段：无 justifyContent，无 alignItems:'stretch'）
@@ -470,13 +482,13 @@ export default async function (ctx) {
     };
   }
 
-  function emptyNode(msg, size) {
+  function emptyNode(msg, size, w) {
     return {
-      type: "stack", direction: "column", alignItems: "center", flex: 1, gap: 3,
+      type: "stack", direction: "column", alignItems: "center", flex: 1, width: w || 300, gap: 3,
       children: [
         { type: "spacer" },
         { type: "image", src: "sf-symbol:exclamationmark.triangle.fill", width: 18, height: 18, color: COLORS.p98 },
-        { type: "text", text: msg, font: { size: size || 11 }, textColor: COLORS.secondary, maxLines: 2, textAlign: "center", minScale: 0.8 },
+        { type: "text", text: msg, width: (w || 300) - 8, font: { size: size || 11 }, textColor: COLORS.secondary, maxLines: 2, textAlign: "center", minScale: 0.8 },
         { type: "spacer" },
       ],
     };
@@ -494,42 +506,66 @@ export default async function (ctx) {
   }
 
   // ════════════════════════════════════════════════════════════
-  // 6. 小号：单油品大数字（column 居中 + 对称 spacer 竖直居中）
+  // 6. 小号：居中 2×2 田字格（92/95 · 98/柴油），左右对称
+  //    - 外层 column 与两行 row 都 alignItems:'center'
+  //    - 每个格子显式宽高，四格同宽；标签/价格 textAlign:'center'
   // ════════════════════════════════════════════════════════════
   if (isSmall) {
+    const SW = 138;                      // 158 - 左右 padding 各 10
+    const GAP = 6;
+    const CELL_W = (SW - GAP) / 2;       // 66：两列严格等宽
+    const CELL_H = 40;
+    const TXT_W = CELL_W - 8;
+    const cell = (r) => ({
+      type: "stack", direction: "column", alignItems: "center",
+      width: CELL_W, height: CELL_H, gap: 1, padding: [2, 2, 2, 2],
+      backgroundColor: tint(r.color, "1F"), borderRadius: 10,
+      children: [
+        { type: "spacer" },
+        { type: "text", text: r.label, width: TXT_W, font: { size: 10, weight: "semibold" }, textColor: r.color, maxLines: 1, minScale: 0.8, textAlign: "center" },
+        { type: "text", text: fmt(r.price), width: TXT_W, font: { size: 15, weight: "bold" }, textColor: COLORS.primary, maxLines: 1, minScale: 0.5, textAlign: "center" },
+        { type: "spacer" },
+      ],
+    });
+    const gridRow = (a, b) => ({
+      type: "stack", direction: "row", alignItems: "center", width: SW, gap: GAP,
+      children: [cell(a), cell(b)],
+    });
     return {
       type: "widget",
-      padding: [12, 12, 10, 12], gap: 4, backgroundColor, refreshAfter: refreshTime,
+      padding: [10, 10, 10, 10], gap: 4, backgroundColor, refreshAfter: refreshTime,
       children: [
-        headerNode(12, 11),
-        hasAnyPrice && focusPrice !== null
+        {
+          type: "stack", direction: "column", alignItems: "center", width: SW, gap: 1,
+          children: [
+            { type: "text", text: `${regionName || "全国"}油价`, width: SW, font: { size: 12, weight: "semibold" }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.8, textAlign: "center" },
+            { type: "text", text: hasAnyPrice ? `更新 ${timeStr}${hasCache && fetchError ? " · 缓存" : ""}` : timeStr, width: SW, font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center" },
+          ],
+        },
+        hasAnyPrice
           ? {
-              type: "stack", direction: "column", alignItems: "center", flex: 1, gap: 2,
+              type: "stack", direction: "column", alignItems: "center", flex: 1, width: SW, gap: 4,
               children: [
                 { type: "spacer" },
-                {
-                  type: "stack", direction: "row", alignItems: "center", padding: [2, 8, 2, 8],
-                  backgroundColor: tint(focusRow.color, "2E"), borderRadius: 8,
-                  children: [{ type: "text", text: focusRow.label, font: { size: 12, weight: "bold" }, textColor: focusRow.color, maxLines: 1, textAlign: "center" }],
-                },
-                { type: "text", text: fmt(focusPrice), font: { size: 36, weight: "bold" }, textColor: COLORS.primary, maxLines: 1, minScale: 0.55, textAlign: "center" },
-                SHOW_TREND
-                  ? { type: "text", text: adjTxtSmall, font: { size: 12, weight: "semibold" }, textColor: adjColor, maxLines: 1, minScale: 0.7, textAlign: "center" }
-                  : { type: "text", text: adjUnit || "", font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1 },
+                gridRow(allRows[0], allRows[1]),
+                gridRow(allRows[2], allRows[3]),
                 { type: "spacer" },
               ],
             }
-          : emptyNode(errText, 11),
-        {
-          type: "text",
-          text: nextDate ? `${MD(nextDate)} 调价 · ${daysLeft >= 0 ? `还有 ${daysLeft} 天` : "待更新"}` : (hasCache ? "调价信息待更新" : "等待首次同步"),
-          font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.75, textAlign: "center",
-        },
+          : {
+              type: "stack", direction: "column", alignItems: "center", flex: 1, width: SW, gap: 4,
+              children: [
+                { type: "spacer" },
+                { type: "image", src: "sf-symbol:exclamationmark.triangle.fill", width: 16, height: 16, color: COLORS.p98 },
+                { type: "text", text: errText, width: SW, font: { size: 12 }, textColor: COLORS.secondary, maxLines: 2, textAlign: "center", minScale: 0.8 },
+                { type: "text", text: "等系统下次刷新重试", width: SW, font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center" },
+                { type: "spacer" },
+              ],
+            },
       ],
     };
   }
 
-  // ════════════════════════════════════════════════════════════
   // 7. 中号：四油品 + 极简 SVG 折线 + 调价两栏（显式宽度）
   // ════════════════════════════════════════════════════════════
   if (!isLarge) {
@@ -544,7 +580,7 @@ export default async function (ctx) {
           children: [
             { type: "spacer" },
             { type: "text", text: SHOW_TREND ? "走势暂无历史" : "走势已关闭", font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
-            { type: "text", text: SHOW_TREND ? "每次真实调价后自动记录一轮" : "可在设置里打开", font: { size: 8 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
+            { type: "text", text: SHOW_TREND ? "该网页只有当前价，无逐轮历史；真实调价后自动累积" : "可在设置里打开", font: { size: 8 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
             { type: "spacer" },
           ],
         };
@@ -569,7 +605,7 @@ export default async function (ctx) {
                 adjBlock({ w: RIGHT_W, labelSize: 9, valueSize: 13, gap: 2, showWindow: true }),
               ],
             }
-          : emptyNode(errText, 12),
+          : emptyNode(errText, 12, contentW),
       ],
     };
   }
@@ -589,7 +625,7 @@ export default async function (ctx) {
         children: [
           { type: "spacer" },
           { type: "text", text: SHOW_TREND ? "走势暂无历史数据" : "走势已关闭", font: { size: 11 }, textColor: COLORS.secondary, maxLines: 1, textAlign: "center" },
-          { type: "text", text: SHOW_TREND ? "每次真实调价后自动记录一轮，攒够 2 轮出图" : "可在模块设置里打开", font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.75 },
+          { type: "text", text: SHOW_TREND ? "网页只提供当前价与最近调价，无逐轮历史；真实调价后自动记录，攒 2 点出图" : "可在模块设置里打开", font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 2, textAlign: "center", minScale: 0.7 },
           { type: "spacer" },
         ],
       };
@@ -638,7 +674,7 @@ export default async function (ctx) {
               },
             ],
           }
-        : emptyNode(errText, 13),
+        : emptyNode(errText, 13, contentW_L),
       {
         type: "stack", direction: "row", alignItems: "center", width: contentW_L,
         children: [
