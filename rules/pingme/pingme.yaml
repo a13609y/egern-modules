@@ -8,7 +8,7 @@ compat_arguments:
   CAPTURE_ENABLED: false
   SIGN_DISABLED: false
   VIDEO_DISABLED: false
-  CRON_SIGN: "30 4-23 * * *"
+  CRON_SIGN: "30 * * * *"
   SIGN_TIMEOUT: 300
   CRON_VIDEO: "20 20 * * *"
   VIDEO_TIMEOUT: 300
@@ -40,8 +40,8 @@ compat_arguments_schema:
 
   CRON_SIGN:
     name: "签到 cron"
-    description: "签到脚本的触发时间（5 段标准 cron）。脚本内部有滚动签到小时 + 当天追赶制，每次触发只会让每个账号真正签到一次，所以默认用 4~23 点每小时触发一次来兜住漏签。想固定每天一个时间，可改成例如 35 23 * * *（必须晚于当天目标签到时刻，最晚 23:30）"
-    default_value: "30 4-23 * * *"
+    description: "签到脚本的触发时间（5 段标准 cron）。默认全天每小时第 30 分触发：脚本按每个账号「上次服务端确认成功」的时间戳判断是否已满 24 小时，不足就跳过、满了才签，失败（未满 24h / HTTP 非 2xx / 返回非 JSON / 网络错误）不记录成功，等下一个整点自动重试。所以每小时触发≠每小时签到，实际每个账号每天签一次"
+    default_value: "30 * * * *"
 
   SIGN_TIMEOUT:
     name: "签到超时时间"

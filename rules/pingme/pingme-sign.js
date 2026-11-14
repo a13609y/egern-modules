@@ -3,25 +3,24 @@
 @Author：怎么肥事 / 奶思 / yaowuliu
 @date 2026-11-13
 
-仅保留签到：滚动签到小时 + 当天追赶制。
+仅保留签到：按「每账号上次确认成功的时刻」满 24 小时才再签，失败就等下一个整点自动重试。
 看视频得奖励已拆到独立的 pingme-video.js，各自独立 cron。
 
-【Egern】由 PingMe.yaml 的 schedule 调用，cron 默认 "30 4-23 * * *"：
-  每天 4~23 点每个整点的第 30 分触发一次，脚本自己判断"今天该几点签"，不是目标小时之前的触发直接退出，
-  过了目标时刻且今天没签过就补签，一直追到 23:30 为止。每个账号每天只会真正签到一次。
+【Egern】由 pingme.yaml 的 schedule 调用，cron 默认 "30 * * * *"：
+  全天每小时第 30 分触发一次，脚本不做任何"目标小时"判断，只看每个账号距上次「服务端确认成功」
+  是否已满 24 小时：不足则本次跳过，满了（或从来没有成功记录）就签。成功才写时间戳，业务失败 /
+  非 JSON / HTTP 非 2xx / 网络错误一律不写，下个整点继续重试。
 */
-const SCRIPT_VER = 'sign-v1.0.0';
+const SCRIPT_VER = 'sign-v2.0.0';
 const NAME = 'PingMe签到';
 const STORE_KEY = 'pingme_accounts_v1';   // 抓包脚本写入的多账号仓库
 const LEGACY_KEY = 'pingme_capture_v3';   // 兼容单账号抓包格式
-const LAST_RUN_KEY = 'pingme_sign_last_run_v1';
+const LAST_OK_KEY = 'pingme_sign_last_ok_v2'; // 每账号上次「服务端确认成功」的毫秒时间戳
+const OLD_RUN_KEY = 'pingme_sign_last_run_v1'; // 旧版：按自然日写的 "Y-M-D" 字符串，只保留不读、不作为成功依据
 const SECRET = '0fOiukQq7jXZV2GRi9LGlO';
 
-/* 滚动签到小时：锚点日期当天固定 BASE_HOUR 点，之后每天 +1，到 23 点后绕回 BASE_HOUR */
-const BASE_HOUR = 4;
-const FIXED_MINUTE = 30;
-const START_DATE = '2026-07-14';
-const CYCLE_LENGTH = 24 - BASE_HOUR;
+/* 服务端按 24 小时判定，本地闸门同样按 24 小时（不是自然日） */
+const INTERVAL_MS = 24 * 3600 * 1000;
 
 const $ = {
   getdata(k) { try { return $persistentStore.read(k); } catch (e) { return null; } },
@@ -41,26 +40,39 @@ const $ = {
   done(v) { try { $done(v || {}); } catch (e) {} }
 };
 
-/* ---------------- 时间判定 ---------------- */
-function getTodayTargetHour() {
-  const start = new Date(START_DATE + 'T00:00:00');
-  const now = new Date();
-  const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const daysPassed = Math.round((nowMidnight - startMidnight) / 86400000);
-  return BASE_HOUR + (((daysPassed % CYCLE_LENGTH) + CYCLE_LENGTH) % CYCLE_LENGTH);
+/* ---------------- 时间判定：只有「确认成功时刻」才是依据 ---------------- */
+function loadOkMap() {
+  const raw = $.getdata(LAST_OK_KEY);
+  if (!raw) return {};
+  try {
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== 'object') return {};
+    const out = {};
+    Object.keys(obj).forEach(k => { if (typeof obj[k] === 'number' && Number.isFinite(obj[k])) out[k] = obj[k]; });
+    return out;
+  } catch (e) { return {}; }
 }
 
-function todayStr(now) { return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`; }
-
-function loadRuns() {
-  try { return JSON.parse($.getdata(LAST_RUN_KEY) || '{}') || {}; } catch (e) { return {}; }
+function lastOkAt(id) {
+  const v = loadOkMap()[id];
+  return typeof v === 'number' ? v : null;
 }
-function alreadyRanToday(id, now) { return loadRuns()[id] === todayStr(now); }
-function markRanToday(id, now) {
-  const m = loadRuns();
-  m[id] = todayStr(now);
-  $.setdata(JSON.stringify(m), LAST_RUN_KEY);
+
+/* 距上次确认成功不足 24 小时 → 本次不发请求。
+   旧键（pingme_sign_last_run_v1，日期字符串）不参与判定：它曾经把「只收到响应」当成功，
+   甚至把失败/未满 24h 也记成当天已处理，不能作为成功时间戳，忽略它才能真正按时重试。 */
+function needWait(id, nowMs) {
+  const t = lastOkAt(id);
+  if (t == null) return false;
+  return nowMs - t < INTERVAL_MS;
+}
+
+/* 保守记录：以「本地收到服务端成功响应」的时刻为准（略晚于服务端受理时刻），
+   保证下一次重试一定在服务端 24h 之后，不会被服务端判「未满 24 小时」。 */
+function markSuccessAt(id, nowMs) {
+  const m = loadOkMap();
+  m[id] = nowMs;
+  $.setdata(JSON.stringify(m), LAST_OK_KEY);
 }
 
 /* ---------------- 签名与请求 ---------------- */
@@ -266,13 +278,25 @@ function signAccount(acc) {
     return fetchApi('checkIn');
   }).then(res => {
     if (!res) return null;
-    // 请求真正到达服务器并返回了响应：无论业务结果是成功还是"今天已签"，都算今天已处理
-    markRanToday(acc.id, new Date());
-    try {
-      const d = JSON.parse(res.body);
-      if (d.retcode === 0) msgs.push(`✅ 签到：${(d.result && d.result.bonusHint ? d.result.bonusHint : (d.retmsg || '')).replace(/\n/g, ' ')}`);
-      else { msgs.push(`⚠️ 签到：${d.retmsg}`); if (isDeregistered(d.retmsg)) flag.deregistered = true; }
-    } catch (e) { msgs.push('❌ 签到：解析失败'); }
+    // 只有 HTTP 2xx + JSON retcode===0 才算「服务端确认成功」，才写成功时间戳。
+    // 业务失败 / 非 JSON / HTTP 非 2xx / 网络错误 一律不写，交给下一个整点重试。
+    if (!(typeof res.status === 'number' && res.status >= 200 && res.status < 300)) {
+      msgs.push(`❌ 签到：HTTP ${res.status}（未确认成功，下个整点重试）`);
+      return fetchApi('queryBalanceAndBonus');
+    }
+    let d = null;
+    try { d = JSON.parse(res.body); } catch (e) { d = null; }
+    if (!d || typeof d !== 'object') {
+      msgs.push('❌ 签到：响应不是 JSON（未确认成功，下个整点重试）');
+      return fetchApi('queryBalanceAndBonus');
+    }
+    if (d.retcode === 0) {
+      markSuccessAt(acc.id, Date.now());
+      msgs.push(`✅ 签到：${(d.result && d.result.bonusHint ? d.result.bonusHint : (d.retmsg || '')).replace(/\n/g, ' ')}`);
+    } else {
+      msgs.push(`⚠️ 签到：${d.retmsg}（未确认成功，下个整点重试）`);
+      if (isDeregistered(d.retmsg)) flag.deregistered = true;
+    }
     return fetchApi('queryBalanceAndBonus');
   }).then(res => {
     if (res) {
@@ -291,11 +315,10 @@ function signAccount(acc) {
 
 /* ---------------- 主流程 ---------------- */
 async function main() {
-  const now = new Date();
-  const targetHour = getTodayTargetHour();
-  const targetTotal = targetHour * 60 + FIXED_MINUTE;
-  const nowTotal = now.getHours() * 60 + now.getMinutes();
-  $.log(`当前 ${now.getHours()}:${now.getMinutes()}，今日目标签到时间 ${targetHour}:${FIXED_MINUTE}`);
+  const nowMs = Date.now();
+  const now = new Date(nowMs);
+  const hhmm = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  $.log(`触发时间 ${hhmm}，按每账号上次确认成功时刻判断是否满 24h`);
 
   const { list } = loadAccounts();
   if (!list.length) {
@@ -303,17 +326,16 @@ async function main() {
     return $.done();
   }
 
-  // 过滤：今天已签过的 / 还没到目标时刻的
+  // 只看 24h：不足的跳过，满了或从未成功过的进入待签队列
   const pending = [];
-  let doneCount = 0, waitCount = 0;
+  let waitCount = 0;
   list.forEach(acc => {
-    if (alreadyRanToday(acc.id, now)) { doneCount++; return; }
-    if (nowTotal < targetTotal) { waitCount++; return; }
+    if (needWait(acc.id, nowMs)) { waitCount++; return; }
     pending.push(acc);
   });
 
   if (!pending.length) {
-    $.log(`今日已签到 ${doneCount} 个，未到目标时刻 ${waitCount} 个，本次跳过`);
+    $.log(`全部 ${waitCount} 个账号距上次确认成功不足 24 小时，本次跳过`);
     return $.done();
   }
 
