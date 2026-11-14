@@ -1,5 +1,5 @@
 name: 全国实时油价
-description: 92/95/98 号汽油与柴油实时油价小组件 · 小/中/大号三套布局（居中四油品 2×2 田字格 / 四油品+走势 / 完整信息）· 走势只用真实抓取记录（站点无逐轮历史，不画推测曲线） · 下轮调价窗口按 10 个工作日推算 · 数据源 m.qiyoujiage.com
+description: 92/95/98 号汽油与柴油实时油价小组件 · 小/中/大号三套布局（居中四油品 2×2 田字格 / 四油品+官方核价走势 / 完整信息）· 走势用 BesFuel 逐期核实的发改委调价历史（地区/油号严格对应，不调整画空心点、缺表断线） · 现价源 m.qiyoujiage.com，历史源 BesFuel（MIT 代码，数据为公告事实）
 author: Egern 群友 @iBL3ND
 homepage: https://github.com/a13609y/egern-modules-hub
 icon: fuelpump.fill
@@ -24,7 +24,7 @@ env_schema:
     default_value: hainan/haikou
   SHOW_TREND:
     name: 显示走势与调价信息
-    description: 打开后中/大号显示走势折线、最近调价与预计下轮窗口；该站点只给当前价、无逐轮历史，故不足 2 个真实快照时显示「暂无历史」
+    description: 打开后中/大号显示官方核价阶梯图、最近调价与预计下轮窗口；历史来自 BesFuel 已核实的发改委公告节点（元/升），未收录的价区/油号不画曲线
     options:
       - "true"
       - "false"
@@ -52,7 +52,7 @@ scriptings:
   - generic:
       name: oil-price
       script_url: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/widgets/oil-price/oil-price.js
-      timeout: 15
+      timeout: 20
       env:
         region: "{{{region}}}"
         SHOW_TREND: "{{{SHOW_TREND}}}"
