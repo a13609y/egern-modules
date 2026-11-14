@@ -1,7 +1,7 @@
 name: 全国实时油价
-description: 92/95/98 号汽油与柴油实时油价小组件 · 自动适配小/中/大号 · 支持调价趋势 · 数据源 m.qiyoujiage.com
+description: 92/95/98 号汽油与柴油实时油价小组件 · 小/中/大号三套布局（大数字 / 四油品+走势 / 完整信息）· 走势只用真实抓取记录 · 下轮调价窗口按 10 个工作日推算 · 数据源 m.qiyoujiage.com
 author: Egern 群友 @iBL3ND
-homepage: https://github.com/a13609y/egern-modules
+homepage: https://github.com/a13609y/egern-modules-hub
 icon: fuelpump.fill
 
 # ── 模块参数默认值（用户可在「模块设置」里覆盖）────────────────
@@ -9,26 +9,41 @@ compat_arguments:
   region: hainan/haikou
   SHOW_TREND: "true"
   REFRESH_HOURS: 6
+  FUEL: "95"
+  FULL_LITERS: "50"
 
 compat_arguments_desc: |
-  地区写省份/城市拼音，用 / 分隔，例如 hainan/haikou、guangdong/guangzhou、beijing。
-  完整对照表见：https://m.qiyoujiage.com
+  地区写省份/城市，拼音（fujian、hainan/haikou）或中文（福建、海口、广东深圳）都行。
+  FUEL 决定小号大数字、走势折线、「加满」金额用哪个油品；FULL_LITERS 决定按多少升算加满。
 
 # ── 模块设置页自动生成的 UI 控件 ────────────────────────────
 env_schema:
   region:
     name: 地区
-    description: 省份/城市拼音，用 / 分隔。例如 hainan/haikou、guangdong/guangzhou，直辖市直接写 beijing。
+    description: 省份/城市，拼音或中文均可。例如 hainan/haikou、guangdong/shenzhen、福建、海口、广东深圳。城市页不存在时自动退回省级页。
     default_value: hainan/haikou
   SHOW_TREND:
-    name: 显示调价趋势
-    description: 在组件上显示下一次调价的方向与幅度
+    name: 显示走势与调价信息
+    description: 打开后中/大号显示走势折线、最近调价与预计下轮窗口；数据不足时显示「暂无历史」
     options:
       - "true"
       - "false"
+  FUEL:
+    name: 重点油品
+    description: 小号大数字、走势折线、「加满」金额使用的油品
+    options:
+      - "92"
+      - "95"
+      - "98"
+      - "柴油"
+    default_value: "95"
+  FULL_LITERS:
+    name: 加满升数
+    description: 大号「加满」金额按多少升计算，默认 50
+    default_value: "50"
   REFRESH_HOURS:
     name: 刷新间隔（小时）
-    description: 小组件刷新提示间隔，实际刷新由系统调度，不保证精确
+    description: 小组件刷新提示间隔，实际刷新由系统调度，不保证精确（1~24）
     default_value: "6"
 
 dns: {}
@@ -36,12 +51,14 @@ dns: {}
 scriptings:
   - generic:
       name: oil-price
-      script_url: https://raw.githubusercontent.com/a13609y/egern-modules/main/widgets/oil-price/oil-price.js
+      script_url: https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/widgets/oil-price/oil-price.js
       timeout: 15
       env:
         region: "{{{region}}}"
         SHOW_TREND: "{{{SHOW_TREND}}}"
         REFRESH_HOURS: "{{{REFRESH_HOURS}}}"
+        FUEL: "{{{FUEL}}}"
+        FULL_LITERS: "{{{FULL_LITERS}}}"
 
 widgets:
   - name: 实时油价
