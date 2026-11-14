@@ -1,5 +1,5 @@
 name: 全国实时油价
-description: 92/95/98 号汽油与柴油实时油价小组件 · 小/中/大号三套布局（大数字 / 四油品+走势 / 完整信息）· 走势只用真实抓取记录 · 下轮调价窗口按 10 个工作日推算 · 数据源 m.qiyoujiage.com
+description: 92/95/98 号汽油与柴油实时油价小组件 · 小/中/大号三套布局（居中四油品 2×2 田字格 / 四油品+走势 / 完整信息）· 走势只用真实抓取记录（站点无逐轮历史，不画推测曲线） · 下轮调价窗口按 10 个工作日推算 · 数据源 m.qiyoujiage.com
 author: Egern 群友 @iBL3ND
 homepage: https://github.com/a13609y/egern-modules-hub
 icon: fuelpump.fill
@@ -14,7 +14,7 @@ compat_arguments:
 
 compat_arguments_desc: |
   地区写省份/城市，拼音（fujian、hainan/haikou）或中文（福建、海口、广东深圳）都行。
-  FUEL 决定小号大数字、走势折线、「加满」金额用哪个油品；FULL_LITERS 决定按多少升算加满。
+  FUEL 决定走势折线与「加满」金额用哪个油品（小号固定显示 92/95/98/柴油四格）；FULL_LITERS 决定按多少升算加满。
 
 # ── 模块设置页自动生成的 UI 控件 ────────────────────────────
 env_schema:
@@ -24,13 +24,13 @@ env_schema:
     default_value: hainan/haikou
   SHOW_TREND:
     name: 显示走势与调价信息
-    description: 打开后中/大号显示走势折线、最近调价与预计下轮窗口；数据不足时显示「暂无历史」
+    description: 打开后中/大号显示走势折线、最近调价与预计下轮窗口；该站点只给当前价、无逐轮历史，故不足 2 个真实快照时显示「暂无历史」
     options:
       - "true"
       - "false"
   FUEL:
     name: 重点油品
-    description: 小号大数字、走势折线、「加满」金额使用的油品
+    description: 走势折线、「加满」金额使用的油品（小号固定显示四油品）
     options:
       - "92"
       - "95"
