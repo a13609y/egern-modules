@@ -19,7 +19,13 @@
  * - 走势图优先用 BesFuel 快照里逐期核实的官方调价历史（地区+油号一一对应，节点日期为价格执行/公告日，
  *   阶梯线表示两次调价之间价格不变，「不作调整」公告画成空心节点）；BesFuel 未收录的地区/油号不画曲线，
  *   只用本脚本真实抓到的价格快照兜底并明确标注「本地快照」，绝不推算、不复用邻近地区数据。
- * - 站点不提供原油变化率，故「下一轮涨跌幅度」不预测，显示「暂无数据」
+ * - 下一轮信息分三级，绝不把「只有窗口日期」说成「下轮幅度」：
+ *   1) 公告/预测级：只有 BesFuel 快照 nationalAdjustment 里带真实金额或明确公告标记时才作为主信息，
+ *      并强制标注来源与「预测/公告」；2) 仅窗口级：只有下轮日期（BesFuel 官方规则+放假推算，或本地
+ *      10 个工作日推算）时，主信息回退为「最近调价」，下轮只写日期并注明「仅日期/预计」；
+ *   3) 窗口已过期：日期早于今天一律不再当「下轮」，显示「窗口待更新」。
+ * - 站点（汽油价格网）与 BesFuel 快照 currently 都不提供可信的下一轮涨跌幅度（forecast 字段为空），
+ *   故默认走第 2 级；本脚本不伪造预测，也不做无授权的复杂新源研究。
  */
 
 const PAD2 = (n) => String(n).padStart(2, "0");
@@ -100,31 +106,97 @@ function chartSVG(points, opt) {
   const lastY = Y(vals[n - 1]).toFixed(1);
   s += `<line x1='${padL}' y1='${lastY}' x2='${W - padR}' y2='${lastY}' stroke='${line}' stroke-opacity='0.35' stroke-width='0.7' stroke-dasharray='3 3'/>`;
 
-  // 阶梯线：水平段表示价格维持，垂直段表示调价生效；缺口处 M 重新起笔
+  // 阶梯线：水平段表示价格维持，垂直段表示调价生效；缺口处 M 重新起笔。
+  // 同时把每段折线记成轴对齐线段，供末尾价标避让（文字不能压在线上）。
+  const segs = [];
   let d = "";
   for (let i = 0; i < n; i++) {
-    const x = X(i).toFixed(1), y = Y(vals[i]).toFixed(1);
-    if (i === 0 || gaps.includes(i)) d += ` M${x} ${y}`;
-    else d += ` H${x} V${y}`;
+    const x = +X(i).toFixed(1), y = +Y(vals[i]).toFixed(1);
+    if (i === 0 || gaps.includes(i)) d += ` M${x.toFixed(1)} ${y.toFixed(1)}`;
+    else {
+      const px = +X(i - 1).toFixed(1), py = +Y(vals[i - 1]).toFixed(1);
+      segs.push({ x1: px, y1: py, x2: x, y2: py });
+      segs.push({ x1: x, y1: py, x2: x, y2: y });
+      d += ` H${x.toFixed(1)} V${y.toFixed(1)}`;
+    }
   }
   s += `<path d='${d.trim()}' fill='none' stroke='${line}' stroke-width='${H >= 60 ? 2.1 : 1.8}' stroke-linejoin='round' stroke-linecap='round'/>`;
 
-  // 节点：普通实心，官方「不调整」空心，最新点用强调色
+  // 节点：普通实心，官方「不调整」空心，最新点用强调色（节点先画，价标最后画）
+  const dots = [];
   for (let i = 0; i < n; i++) {
-    const x = X(i).toFixed(1), y = Y(vals[i]).toFixed(1);
+    const x = +X(i).toFixed(1), y = +Y(vals[i]).toFixed(1);
     const isLast = i === n - 1;
+    const r = isLast ? 3.2 : 2.1;
+    dots.push({ x, y, r });
     if (points[i].kind === "unchanged") {
-      s += `<circle cx='${x}' cy='${y}' r='${isLast ? 3.2 : 2.1}' fill='none' stroke='${isLast ? accent : line}' stroke-width='1.2'/>`;
+      s += `<circle cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${isLast ? 3.2 : 2.1}' fill='none' stroke='${isLast ? accent : line}' stroke-width='1.2'/>`;
     } else {
-      s += `<circle cx='${x}' cy='${y}' r='${isLast ? 3.2 : 2}' fill='${isLast ? accent : line}'/>`;
+      s += `<circle cx='${x.toFixed(1)}' cy='${y.toFixed(1)}' r='${isLast ? 3.2 : 2}' fill='${isLast ? accent : line}'/>`;
     }
   }
 
-  // 最新价数值（贴近末点，越界时自动下方/左对齐）
-  const lastX = X(n - 1);
-  const anchor = lastX > W - 34 ? "end" : "middle";
-  const ty = Y(vals[n - 1]) - 6 < padT + 5 ? Y(vals[n - 1]) + 10 : Y(vals[n - 1]) - 5;
-  s += `<text x='${lastX.toFixed(1)}' y='${ty.toFixed(1)}' font-size='8.5' font-weight='700' fill='${line}' text-anchor='${anchor}'>${vals[n - 1].toFixed(2)}</text>`;
+  // ── 末点价标：最后绘制（置顶），候选位逐个试排，避开折线段 / 节点 / 坐标轴文字，
+  //    并夹在画布内（靠右自动左移，上下越界自动贴边），保证曲线不穿字、数字不遮不出界。
+  const lastV = vals[n - 1];
+  const lab = lastV.toFixed(2);
+  const labFs = H >= 60 ? 9.5 : 8.5;
+  const labW = lab.length * labFs * 0.58;        // 数字字宽保守估计
+  const labH = labFs;
+  const lx = +X(n - 1).toFixed(1), ly = +Y(lastV).toFixed(1);
+  const labBox = (x, y, a) => {
+    const x1 = a === "middle" ? x - labW / 2 : a === "end" ? x - labW : x;
+    const x2 = a === "middle" ? x + labW / 2 : a === "end" ? x : x + labW;
+    return { x1, x2, y1: y - labH * 0.78, y2: y + labH * 0.22 };
+  };
+  // 横轴首尾日期文字占位（避免价标压日期）
+  const reserved = [];
+  if (opt.labels && opt.labels.length === n) {
+    reserved.push({ x1: padL, x2: padL + 26, y1: H - 9, y2: H - 1 });
+    if (n > 1) reserved.push({ x1: W - padR - 26, x2: W - padR, y1: H - 9, y2: H - 1 });
+  }
+  const clashOf = (b) => {
+    let c = 0;
+    if (b.x1 < padL + 0.5 || b.x2 > W - 1.5 || b.y1 < 1 || b.y2 > H - padB + 2) c += 3;
+    for (const g of segs) {
+      const gx1 = Math.min(g.x1, g.x2), gx2 = Math.max(g.x1, g.x2);
+      const gy1 = Math.min(g.y1, g.y2), gy2 = Math.max(g.y1, g.y2);
+      if (b.x1 < gx2 + 1.2 && b.x2 > gx1 - 1.2 && b.y1 < gy2 + 1.2 && b.y2 > gy1 - 1.2) c += 2;
+    }
+    for (const p of dots) {
+      if (b.x1 < p.x + p.r + 1 && b.x2 > p.x - p.r - 1 && b.y1 < p.y + p.r + 1 && b.y2 > p.y - p.r - 1) c += 2;
+    }
+    for (const rv of reserved) {
+      if (b.x1 < rv.x2 && b.x2 > rv.x1 && b.y1 < rv.y2 && b.y2 > rv.y1) c += 2;
+    }
+    return c;
+  };
+  const dyUp = -(labH * 0.55 + 2.5), dyDn = labH * 0.95 + 3;
+  const cands = [
+    { dx: 0, dy: dyUp, a: "middle" }, { dx: 0, dy: dyDn, a: "middle" },
+    { dx: -4, dy: dyUp, a: "end" }, { dx: -4, dy: dyDn, a: "end" },
+    { dx: 4, dy: dyUp, a: "start" }, { dx: 4, dy: dyDn, a: "start" },
+    { dx: -2, dy: dyUp - labH - 2, a: "end" }, { dx: -2, dy: dyDn + labH + 2, a: "end" },
+  ];
+  let placed = null, bestClash = Infinity;
+  for (const c of cands) {
+    let x = lx + c.dx, y = ly + c.dy;
+    let b = labBox(x, y, c.a);
+    if (b.x1 < padL + 1) { x += padL + 1 - b.x1; b = labBox(x, y, c.a); }
+    if (b.x2 > W - 1.5) { x -= b.x2 - (W - 1.5); b = labBox(x, y, c.a); }
+    if (b.y1 < 1) { y += 1 - b.y1; b = labBox(x, y, c.a); }
+    if (b.y2 > H - padB + 2) { y -= b.y2 - (H - padB + 2); b = labBox(x, y, c.a); }
+    const cl = clashOf(b);
+    if (cl < bestClash) { bestClash = cl; placed = { x, y, a: c.a, b }; }
+    if (cl === 0) break;
+  }
+  if (!placed) placed = { x: lx, y: ly + dyUp, a: "middle", b: labBox(lx, ly + dyUp, "middle") };
+  const boxAttr = `${placed.b.x1.toFixed(1)} ${placed.b.y1.toFixed(1)} ${placed.b.x2.toFixed(1)} ${placed.b.y2.toFixed(1)}`;
+  // 实在避不开（极窄图）时给价标加一层两主题都成立的中性半透明底，保证数字可读
+  if (bestClash > 0) {
+    s += `<rect x='${(placed.b.x1 - 1).toFixed(1)}' y='${(placed.b.y1 - 0.5).toFixed(1)}' width='${(placed.b.x2 - placed.b.x1 + 2).toFixed(1)}' height='${(placed.b.y2 - placed.b.y1 + 1).toFixed(1)}' rx='2' fill='${grid}' fill-opacity='0.30'/>`;
+  }
+  s += `<text x='${placed.x.toFixed(1)}' y='${placed.y.toFixed(1)}' font-size='${labFs}' font-weight='700' fill='${line}' text-anchor='${placed.a}' data-box='${boxAttr}'>${lab}</text>`;
 
   // 横轴：首 / 尾真实日期（M/D）
   if (opt.labels && opt.labels.length === n) {
@@ -286,11 +358,23 @@ export default async function (ctx) {
     if (!Object.keys(grades).length) return null;
     const na = json.nationalAdjustment && typeof json.nationalAdjustment === "object" ? json.nationalAdjustment : {};
     const nw = na.nextAdjustment && typeof na.nextAdjustment === "object" ? na.nextAdjustment : {};
+    // 下轮幅度：只有快照里携带真实金额（forecast.amountPerLiter）时才采信，并原样带来源
+    const fcRaw = na.forecast && typeof na.forecast === "object" ? na.forecast : null;
+    let fc = null;
+    if (fcRaw) {
+      const amt = parseFloat(fcRaw.amountPerLiter);
+      const dRaw = String(fcRaw.direction || "").toLowerCase();
+      const dir = /涨|升|up/.test(dRaw) ? "up" : /跌|降|down/.test(dRaw) ? "down" : /平|搁浅|flat/.test(dRaw) ? "flat" : "";
+      const win = /^\d{4}-\d{2}-\d{2}$/.test(String(fcRaw.windowDate || "")) ? String(fcRaw.windowDate) : "";
+      if (dir && isFinite(amt) && amt > 0) fc = { dir, amt, window: win, src: String(fcRaw.sourceName || ""), updated: String(fcRaw.updatedAt || "") };
+    }
     return {
       key, name: String(r.name || key), checkedAt: checked,
-      priceScope: String(r.priceScope || ""), gaps, grades,
+      priceScope: String(r.priceScope || ""), gaps, grades, fc,
       nextDate: /^\d{4}-\d{2}-\d{2}$/.test(String(nw.date || "")) ? String(nw.date) : "",
       nextLabel: String(nw.dateLabel || ""),
+      nextSrc: String(nw.sourceName || ""),
+      nextUrl: String(nw.sourceUrl || ""),
     };
   }
 
@@ -529,19 +613,49 @@ export default async function (ctx) {
     adjDate = new Date(now.getFullYear(), adj.month - 1, adj.day);
     if (adjDate.getTime() - now.getTime() > 45 * 86400000) adjDate.setFullYear(now.getFullYear() - 1); // 跨年
   }
-  let nextDate = null, daysLeft = null, nextSource = "local";
+  // 下轮日期只认「未来」：日期早于今天的一律不再当下一轮（否则会把过去错当下一轮）
+  let nextDate = null, daysLeft = null, nextSource = "local", nextStale = false;
   const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const bfNextD = bf && /^\d{4}-\d{2}-\d{2}$/.test(bf.nextDate || "") ? new Date(`${bf.nextDate}T00:00:00`) : null;
   if (bfNextD && !isNaN(bfNextD.getTime()) && bfNextD.getTime() >= today0.getTime()) {
     nextDate = bfNextD;
     nextSource = "besfuel";                 // BesFuel 快照里的官方规则+放假安排推算窗口
-  } else if (adjDate) {
-    nextDate = addWorkdays(adjDate, 10);    // 退回本地规则推算（标注「预计」）
+  } else {
+    if (bfNextD && !isNaN(bfNextD.getTime())) nextStale = true;   // 快照里的窗口已过期
+    if (adjDate) {
+      const local = addWorkdays(adjDate, 10);  // 退回本地规则推算（标注「预计」）
+      if (local.getTime() >= today0.getTime()) nextDate = local;
+      else nextStale = true;
+    }
   }
-  if (nextDate) {
-    daysLeft = Math.round((new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate()).getTime()
+
+  // ── 下轮信息分级（绝不把「只有日期」说成「下轮涨跌幅」）────────────
+  // forecast：快照里真有下轮金额 → 主信息显示幅度，并强制标注「预测」与来源
+  // window  ：只有日期（BesFuel 官方规则+放假推算，或本地 10 工作日推算）→ 主信息仍是最近调价，
+  //           下轮只写日期并注明「仅日期/预计」；公告级（有公告来源）则标「公告」
+  // none    ：窗口已过期或完全无数据 → 主信息为最近调价，下轮显示「待更新」
+  const fc = bf && bf.fc ? bf.fc : null;
+  const fcD = fc && fc.window ? new Date(`${fc.window}T00:00:00`) : null;
+  const fcOk = !!(fc && fcD && !isNaN(fcD.getTime()) && fcD.getTime() >= today0.getTime());
+  const nextIsAnn = !!(bf && bf.nextDate) && !/预计|推算|规则|放假/.test(`${bf.nextLabel} ${bf.nextSrc}`);
+  const nextInfo = fcOk
+    ? { kind: "forecast", badge: "预测", date: fcD, dir: fc.dir, amt: fc.amt, src: fc.src }
+    : nextDate
+      ? { kind: "window", badge: nextIsAnn ? "公告" : "预计", date: nextDate, dir: "", amt: null, src: nextSource }
+      : { kind: "none", badge: "", date: null, dir: "", amt: null, src: "" };
+  if (nextInfo.date) {
+    daysLeft = Math.round((new Date(nextInfo.date.getFullYear(), nextInfo.date.getMonth(), nextInfo.date.getDate()).getTime()
       - today0.getTime()) / 86400000);
   }
+  const nextAmtTxt = nextInfo.kind === "forecast"
+    ? `${nextInfo.dir === "up" ? "↑" : nextInfo.dir === "down" ? "↓" : "→"}${nextInfo.amt.toFixed(2)}`
+    : "";
+  const nextAmtFull = nextInfo.kind === "forecast" ? `${nextAmtTxt} 元/升` : "";
+  const nextAmtColor = nextInfo.kind === "forecast"
+    ? (nextInfo.dir === "up" ? COLORS.up : nextInfo.dir === "down" ? COLORS.down : COLORS.secondary)
+    : COLORS.secondary;
+  const nextDateTxt = nextInfo.date ? MD(nextInfo.date) : "";
+  const nextDaysTxt = nextInfo.date ? (daysLeft >= 0 ? `${daysLeft} 天` : "待更新") : "待更新";
 
   const allRows = [
     { key: "p92", label: "92号", price: prices.p92, color: COLORS.p92 },
@@ -600,15 +714,8 @@ export default async function (ctx) {
   const bfRangeTxt = seriesKind === "official" && series.length
     ? `${mdLabel(series[0].d)}-${mdLabel(series[series.length - 1].d)} · ${series.length} 个官方节点`
     : "";
-  const bfCapShort = bfLatest
-    ? `${FUEL_LABEL}官方核价 ${bfLatest.v.toFixed(2)}元/升 · ${bfDateLabel} ${bfDeltaTxt}${bfStale ? " · 缓存" : ""}`
-    : bfReason === "uncovered"
-      ? "BesFuel 未收录该地区 · 只显示当前价"
-      : bfReason === "grade"
-        ? `BesFuel 未核价 ${FUEL_LABEL} · 不做推算`
-        : bfReason === "fail"
-          ? "官方核价历史暂不可用 · 现价照常"
-          : "暂无官方核价历史";
+  const bfCapShort = null;   // 中号图下注释行已删除（高度让给图表），来源说明改到 README / 大号图注
+
   const bfCapLong = bfLatest
     ? `${FUEL_LABEL} · 官方核价历史（元/升）· 最新 ${bfLatest.v.toFixed(2)} · ${bfDateLabel} 生效 · 较上轮 ${bfDeltaTxt}`
     : bfReason === "uncovered"
@@ -680,18 +787,35 @@ export default async function (ctx) {
     };
   }
 
-  // 中号右栏：调价辅助信息，整体降到次要字号（≤9.5）与弱化颜色
+  // 中号右栏：调价辅助信息（主信息优先下轮：有真实幅度才显示下轮幅度，否则主信息为最近调价，
+  // 下轮只写日期并明确标注「仅日期」）。整体次要字号（≤11.5）与弱化颜色。
   function adjBlockM(o) {
+    const fcOn = nextInfo.kind === "forecast";
+    const annOn = nextInfo.kind === "window" && nextInfo.badge === "公告";
+    // 公告级（有日期无金额）不能让最近调价的幅度顶到「下轮公告」名下
+    const mainLabel = fcOn ? "下轮预测" : "最近调价";
+    const mainVal = fcOn ? nextAmtFull : adjTxt;
+    const mainColor = fcOn ? nextAmtColor : adjColor;
+    const mainSub = fcOn
+      ? `${nextDateTxt} 执行 · 预测`
+      : adjDate ? `${MD(adjDate)} 24时` : "日期暂无数据";
+    const secondLabel = fcOn ? "最近调价" : annOn ? "下轮公告" : "下轮预计";
+    const secondVal = fcOn ? adjTxt : nextInfo.date ? nextDateTxt : "待更新";
+    const secondSub = fcOn
+      ? (adjDate ? `${MD(adjDate)} 24时` : "—")
+      : nextInfo.date
+        ? `${annOn ? "公告日" : "仅日期"} · ${nextDaysTxt}`
+        : nextStale ? "窗口已过" : "暂无窗口";
     return {
       type: "stack", direction: "column", alignItems: "start", width: o.w, gap: 3,
       children: [
-        { type: "text", text: "最近调价", width: o.w, font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1 },
-        { type: "text", text: adjTxt, width: o.w, font: { size: 11.5, weight: "semibold" }, textColor: adjColor, maxLines: 1, minScale: 0.6 },
-        { type: "text", text: adjDate ? `${MD(adjDate)} 24时` : "日期暂无数据", width: o.w, font: { size: 9 }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.7 },
+        { type: "text", text: mainLabel, width: o.w, font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1 },
+        { type: "text", text: mainVal, width: o.w, font: { size: 11.5, weight: "semibold" }, textColor: mainColor, maxLines: 1, minScale: 0.6 },
+        { type: "text", text: mainSub, width: o.w, font: { size: 9 }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.7 },
         { type: "stack", height: 1, width: o.w - 18, backgroundColor: COLORS.cardBorder, children: [{ type: "spacer" }] },
-        { type: "text", text: "下轮预计", width: o.w, font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1 },
-        { type: "text", text: nextDate ? MD(nextDate) : "暂无数据", width: o.w, font: { size: 10, weight: "semibold" }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.7 },
-        { type: "text", text: nextDate ? (daysLeft >= 0 ? `还有 ${daysLeft} 天` : "待更新") : "窗口待更新", width: o.w, font: { size: 8.5 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.8 },
+        { type: "text", text: secondLabel, width: o.w, font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1 },
+        { type: "text", text: secondVal, width: o.w, font: { size: 10, weight: "semibold" }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.7 },
+        { type: "text", text: secondSub, width: o.w, font: { size: 8.5 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.7 },
       ],
     };
   }
@@ -720,9 +844,9 @@ export default async function (ctx) {
   }
 
   // ════════════════════════════════════════════════════════════
-  // 6. 小号 158×158：图标+左对齐标题 / 独立弱化时间行 / 2×2 四格（保持对称）
-  //    widget padding 10 → 可用 138
-  //    标题行 18 + gap 1 + 时间行 12 = 31；gap 6；网格 101 = 48 + 5 + 48
+  // 6. 小号 158×158：标题与更新时间同一行（左＝油泵+地区油价，右＝刷新图标+时间，中间 flex 撑开）/ 2×2 四格
+  //    widget padding 9/10 → 可用 138×140；标题行 18 + gap 6 + 网格 113 = 137（删掉独立时间行后
+  //    腾出的高度全部给四格：单元格高 46→54，价格仍按原字号放得下）
   // ════════════════════════════════════════════════════════════
   if (isSmall) {
     const SW = 138;                      // 158 - 左右 padding 各 10
@@ -750,22 +874,13 @@ export default async function (ctx) {
       padding: [9, 10, 9, 10], gap: 6, backgroundColor, refreshAfter: refreshTime,
       children: [
         {
-          type: "stack", direction: "column", alignItems: "start", width: SW, gap: 1,
+          // 标题行：油泵图标 + 地区油价（左，flex 占满中间）→ 刷新图标 + 更新时间（右），同一行，无独立时间行
+          type: "stack", direction: "row", alignItems: "center", width: SW, height: 18, gap: 3,
           children: [
-            {
-              type: "stack", direction: "row", alignItems: "center", width: SW, height: 18, gap: 3,
-              children: [
-                fuelIcon(13),
-                { type: "text", text: `${regionName || "全国"}油价`, font: { size: 12.5, weight: "semibold" }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.75 },
-              ],
-            },
-            {
-              type: "stack", direction: "row", alignItems: "center", width: SW, height: 12, gap: 2,
-              children: [
-                refreshIcon(9),
-                { type: "text", text: `${hasAnyPrice ? "更新 " : ""}${timeStr}${hasCache && fetchError ? " · 缓存" : ""}`, font: { size: 9.5 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.8 },
-              ],
-            },
+            fuelIcon(13),
+            { type: "text", text: `${regionName || "全国"}油价`, flex: 1, font: { size: 12.5, weight: "semibold" }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.75 },
+            refreshIcon(9),
+            { type: "text", text: `${hasAnyPrice ? "更新 " : ""}${timeStr}${hasCache && fetchError ? " · 缓存" : ""}`, font: { size: 9.5 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.75 },
           ],
         },
         hasAnyPrice
@@ -791,13 +906,14 @@ export default async function (ctx) {
   // 7. 中号 338×158：四价格第一（18pt，等宽 52 卡），走势第二，右栏辅助第三
   //    widget padding [9,10,7,10] → 可用 318×142
   //    标题行 20 + gap 6 + 主体 116
-  //    主体：左栏 223（卡 52 + 图 44 + 图注 11）/ 间距 7 / 分隔 1 / 右栏 80
+  //    主体：左栏 223（卡 52 + 间距 3 + 图 58，图下注释行已删除，腾出的高度全部给图表）/
+  //          间距 7 / 分隔 1 / 右栏 80
   // ════════════════════════════════════════════════════════════
   if (!isLarge) {
     const pad = [9, 10, 7, 10];
     const contentW = 338 - pad[1] - pad[3];        // 318
     const RIGHT_W = 80;
-    const LEFT_W = 223, CARD_W_M = 52, CARD_GAP_M = 5, CARD_H_M = 52, CHART_W_M = 223, CHART_H_M = 42;
+    const LEFT_W = 223, CARD_W_M = 52, CARD_GAP_M = 5, CARD_H_M = 52, CHART_W_M = 223, CHART_H_M = 58;
     const chartNodeM = SHOW_TREND && series.length >= 2
       ? { type: "image", src: chartSVG(series, { w: CHART_W_M, h: CHART_H_M, gaps: seriesGaps, labels: seriesLabels }), width: CHART_W_M, height: CHART_H_M }
       : {
@@ -809,10 +925,6 @@ export default async function (ctx) {
             { type: "spacer" },
           ],
         };
-    const capNodeM = {
-      type: "text", text: bfCapShort, width: LEFT_W, font: { size: 8, weight: "medium" },
-      textColor: bfLatest ? bfColor : COLORS.tertiary, maxLines: 1, minScale: 0.55,
-    };
 
     return {
       type: "widget",
@@ -828,7 +940,6 @@ export default async function (ctx) {
                   children: [
                     fuelRow({ w: LEFT_W, h: CARD_H_M, cardW: CARD_W_M, gap: CARD_GAP_M, labelSize: 9.5, priceSize: 18, radius: 10, padding: [1, 1, 1, 1] }),
                     chartNodeM,
-                    ...(series.length >= 2 ? [capNodeM] : []),
                   ],
                 },
                 vDivider(104),
@@ -872,6 +983,25 @@ export default async function (ctx) {
   };
   const colW_L = (contentW_L - 1 - 20) / 2;         // 两栏 + 1px 分隔 + 10×2 间距
 
+  // 大号底栏调价块：主信息优先下轮——只有真实幅度（预测）或公告才占主位，且明确标注；
+  // 只有窗口日期时主信息仍是「最近调价」，下轮日期在副行注明「预计/公告」。
+  const bigFcOn = nextInfo.kind === "forecast";
+  const bigAnnOn = nextInfo.kind === "window" && nextInfo.badge === "公告";
+  // 公告级：有未来公告日期但没有金额 → 主信息仍是最近调价，公告日期只在副行标注
+  const bigMainLabel = bigFcOn ? "下轮预测（全国）" : "最近调价（全国）";
+  const bigMainVal = bigFcOn ? nextAmtTxt : adjTxt;
+  const bigMainColor = bigFcOn ? nextAmtColor : adjColor;
+  const adjShort = adj && adj.range
+    ? `${adj.dir === "down" ? "↓" : adj.dir === "up" ? "↑" : "→"}${String(adj.range).split("-")[0]}`
+    : "";
+  const bigSub = bigFcOn
+    ? `${nextDateTxt} 执行 · ${adjShort ? `最近 ${adjShort}` : "预测"}`
+    : nextInfo.date
+      ? `${adjDate ? MD(adjDate) : "—"} 24时 · 下轮 ${nextDateTxt}${bigAnnOn ? " 公告" : " 预计"}`
+      : nextStale
+        ? `${adjDate ? MD(adjDate) : "—"} 24时 · 下轮窗口待更新`
+        : (adjDate ? `${MD(adjDate)} 24时` : "日期暂无数据");
+
   return {
     type: "widget",
     padding: padL, gap: 8, backgroundColor, refreshAfter: refreshTime,
@@ -891,9 +1021,9 @@ export default async function (ctx) {
                   ...(SHOW_TREND ? [{
                     type: "stack", direction: "column", alignItems: "start", width: colW_L, gap: 2,
                     children: [
-                      { type: "text", text: "最近调价（全国）", font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1 },
-                      { type: "text", text: adjTxt, width: colW_L, font: { size: 17, weight: "semibold" }, textColor: adjColor, maxLines: 1, minScale: 0.6 },
-                      { type: "text", text: nextDate ? `${adjDate ? MD(adjDate) : "—"} 24时 · 下轮 ${MD(nextDate)}` : (adjDate ? `${MD(adjDate)} 24时` : "日期暂无数据"), width: colW_L, font: { size: 9.5 }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.7 },
+                      { type: "text", text: bigMainLabel, font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1 },
+                      { type: "text", text: bigMainVal, width: colW_L, font: { size: 17, weight: "semibold" }, textColor: bigMainColor, maxLines: 1, minScale: 0.6 },
+                      { type: "text", text: bigSub, width: colW_L, font: { size: 9.5 }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.7 },
                     ],
                   }, vDivider(48)] : []),
                   {
