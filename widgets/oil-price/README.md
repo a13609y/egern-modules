@@ -76,5 +76,6 @@ https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/widgets/oil-pri
 
 ## 版本
 
+- v4.0.1 — 修复中/大号不渲染：删除未文档化的 `justifyContent` 与非法枚举 `alignItems: 'stretch'`（官方只支持 start / end / center），改为受支持字段 + 对称 `spacer` 竖直居中 + 显式 `width` 撑满；移除所有空 `children`；SVG 保持极简（约 1.3 KB，远低于官方 512 KB 上限）。
 - v4.0 — 三尺寸重排（参考图布局）：小号单油品大数字、中号四油品 + 折线 + 调价两栏、大号完整信息 + 加满金额；新增 `FUEL` / `FULL_LITERS`；走势改为真实快照累积 + SVG 折线；下轮窗口按 10 个工作日推算。
 - v3.1 — 模块化（参数走 `env_schema`）、中文地区映射、城市页回退省级页。
