@@ -1,6 +1,7 @@
 /**
- * ⛽ 全国实时油价小组件 v4.0.2（Egern 模块版 · 小/中/大三尺寸重排）
- * 数据源：http://m.qiyoujiage.com/（省份 / 城市页面）
+ * ⛽ 全国实时油价小组件 v4.1.0（Egern 模块版 · 小/中/大三尺寸重排）
+ * 现价源：http://m.qiyoujiage.com/（省份 / 城市页面）
+ * 历史源：BesFuel（https://github.com/BensonLaur/BesFuel）已核实的发改委调价历史（元/升，真实节点）
  * 原作者：Egern 群友 tg://user?id=5122789128 · 二次修改 iBL3ND
  *
  * 模块参数（YAML env_schema 生成设置界面，兼容手写环境变量）
@@ -15,9 +16,9 @@
  * ─────────────────────────────────────────────────────────────
  * - 「最近调价」的日期 / 方向 / 幅度来自站点页面 tishi 文本（真实）
  * - 「预计下轮窗口」= 最近调价日 + 10 个工作日（国内成品油调价规则推算，界面上标注「预计」）
- * - 走势图只画本脚本真实抓到的价格快照：点日期取网页给出的最近调价日（真实），价格没变不新增点；
- *   不足 2 个点显示「暂无历史」——m.qiyoujiage.com 的省份页只有当前价 + 最近一次调价文案，
- *   /tz/YYYY.shtml 只有调价日期表，站点确实不提供逐轮历史价格，所以不画推测曲线。
+ * - 走势图优先用 BesFuel 快照里逐期核实的官方调价历史（地区+油号一一对应，节点日期为价格执行/公告日，
+ *   阶梯线表示两次调价之间价格不变，「不作调整」公告画成空心节点）；BesFuel 未收录的地区/油号不画曲线，
+ *   只用本脚本真实抓到的价格快照兜底并明确标注「本地快照」，绝不推算、不复用邻近地区数据。
  * - 站点不提供原油变化率，故「下一轮涨跌幅度」不预测，显示「暂无数据」
  */
 
@@ -63,55 +64,72 @@ function b64(str) {
 }
 
 /**
- * 折线图 SVG（纯字符串生成，无外部资源）。
- * 配色取「明暗背景都接受」的中间调：品牌橙 + 半透明面积 + 灰轴线/灰文字。
+ * 官方核价历史阶梯图（纯字符串 SVG，无外部资源）。
+ * 语义对齐 BesFuel：横轴为真实「价格执行/公告日期」，纵轴为元/升，阶梯线（H/V）表示价格在两次调价之间保持不变；
+ * 空心点为官方「不作调整」公告（价格未变），最新点实心并标注最新价；历史缺口处断线，不把缺失期间画成价格不变。
+ * points: [{ v:number, d:"YYYY-MM-DD", kind:"price"|"unchanged" }]
+ * opt: { w, h, gaps:number[](断线起点索引), labels:string[] }
  */
-function chartSVG(vals, labels, opt) {
+function chartSVG(points, opt) {
   const W = Math.max(120, Math.round(opt.w));
-  const H = Math.max(44, Math.round(opt.h));
-  const padL = 27, padR = 9, padT = 7, padB = 13;
+  const H = Math.max(40, Math.round(opt.h));
+  const n = points.length;
+  const vals = points.map((p) => p.v);
+  const padL = 25, padR = 7, padB = 12;
+  const padT = Math.max(9, Math.round(H * 0.14));
   const iw = W - padL - padR, ih = H - padT - padB;
-  const n = vals.length;
-  const dmin = Math.min(...vals);
-  const dmax = Math.max(...vals);
-  let lo = dmin, hi = dmax;
+  const dmin = Math.min(...vals), dmax = Math.max(...vals);
   const span = dmax - dmin;
-  if (span < 0.06) { lo = dmin - 0.05; hi = dmax + 0.05; } else { lo = dmin - span * 0.16; hi = dmax + span * 0.16; }
+  let lo = dmin, hi = dmax;
+  if (span < 0.04) { lo = dmin - 0.05; hi = dmax + 0.05; } else { lo = dmin - span * 0.2; hi = dmax + span * 0.2; }
   const X = (i) => (n === 1 ? padL + iw / 2 : padL + (iw * i) / (n - 1));
   const Y = (v) => padT + ih * (1 - (v - lo) / (hi - lo));
-
-  const line = "#FF9F0A", area = "#FF9F0A", grid = "#8E8E93", txt = "#8E8E93", last = "#34C759";
+  const line = "#2E9E6B", accent = "#FF9F0A", grid = "#8E8E93", txt = "#8E8E93";
+  const gaps = Array.isArray(opt.gaps) ? opt.gaps : [];
   let s = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>`;
 
-  // 三条参考虚线（数据的最小 / 中 / 最大值）
-  const ticks = [dmax, (dmax + dmin) / 2, dmin];
+  // 网格 + Y 轴刻度（高图三条，矮图只留上下两条）
+  const ticks = H >= 60 ? [dmax, (dmax + dmin) / 2, dmin] : [dmax, dmin];
   ticks.forEach((v, i) => {
     const y = Y(v).toFixed(1);
     if (i > 0) s += `<line x1='${padL}' y1='${y}' x2='${W - padR}' y2='${y}' stroke='${grid}' stroke-opacity='0.22' stroke-width='0.7' stroke-dasharray='2 3'/>`;
-    s += `<text x='${padL - 4}' y='${(+y + 3).toFixed(1)}' font-size='7.5' fill='${txt}' text-anchor='end'>${v.toFixed(2)}</text>`;
+    s += `<text x='${padL - 4}' y='${(+y + 2.6).toFixed(1)}' font-size='7' fill='${txt}' text-anchor='end'>${v.toFixed(2)}</text>`;
   });
 
-  // 面积 + 折线
-  let d = "";
-  for (let i = 0; i < n; i++) d += `${i ? " L" : "M"}${X(i).toFixed(1)} ${Y(vals[i]).toFixed(1)}`;
-  const base = (padT + ih).toFixed(1);
-  s += `<path d='${d} L${X(n - 1).toFixed(1)} ${base} L${X(0).toFixed(1)} ${base} Z' fill='${area}' fill-opacity='0.16'/>`;
-  s += `<path d='${d}' fill='none' stroke='${line}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/>`;
+  // 最新价水平参考线（虚线）
+  const lastY = Y(vals[n - 1]).toFixed(1);
+  s += `<line x1='${padL}' y1='${lastY}' x2='${W - padR}' y2='${lastY}' stroke='${line}' stroke-opacity='0.35' stroke-width='0.7' stroke-dasharray='3 3'/>`;
 
-  // 数据点（最后一个用绿色强调）
+  // 阶梯线：水平段表示价格维持，垂直段表示调价生效；缺口处 M 重新起笔
+  let d = "";
   for (let i = 0; i < n; i++) {
-    const c = i === n - 1 ? last : line;
-    const r = i === n - 1 ? 3 : 2.1;
-    s += `<circle cx='${X(i).toFixed(1)}' cy='${Y(vals[i]).toFixed(1)}' r='${r}' fill='${c}'/>`;
+    const x = X(i).toFixed(1), y = Y(vals[i]).toFixed(1);
+    if (i === 0 || gaps.includes(i)) d += ` M${x} ${y}`;
+    else d += ` H${x} V${y}`;
+  }
+  s += `<path d='${d.trim()}' fill='none' stroke='${line}' stroke-width='${H >= 60 ? 2.1 : 1.8}' stroke-linejoin='round' stroke-linecap='round'/>`;
+
+  // 节点：普通实心，官方「不调整」空心，最新点用强调色
+  for (let i = 0; i < n; i++) {
+    const x = X(i).toFixed(1), y = Y(vals[i]).toFixed(1);
+    const isLast = i === n - 1;
+    if (points[i].kind === "unchanged") {
+      s += `<circle cx='${x}' cy='${y}' r='${isLast ? 3.2 : 2.1}' fill='none' stroke='${isLast ? accent : line}' stroke-width='1.2'/>`;
+    } else {
+      s += `<circle cx='${x}' cy='${y}' r='${isLast ? 3.2 : 2}' fill='${isLast ? accent : line}'/>`;
+    }
   }
 
-  // x 轴标签：首 / 中 / 尾
-  if (labels && labels.length === n) {
-    const idx = n >= 3 ? [0, Math.floor((n - 1) / 2), n - 1] : [0, n - 1];
-    idx.forEach((i, k) => {
-      const anchor = k === 0 && idx.length > 1 ? "start" : (k === idx.length - 1 && idx.length > 1 ? "end" : "middle");
-      s += `<text x='${X(i).toFixed(1)}' y='${H - 3}' font-size='7.5' fill='${txt}' text-anchor='${anchor}'>${labels[i]}</text>`;
-    });
+  // 最新价数值（贴近末点，越界时自动下方/左对齐）
+  const lastX = X(n - 1);
+  const anchor = lastX > W - 34 ? "end" : "middle";
+  const ty = Y(vals[n - 1]) - 6 < padT + 5 ? Y(vals[n - 1]) + 10 : Y(vals[n - 1]) - 5;
+  s += `<text x='${lastX.toFixed(1)}' y='${ty.toFixed(1)}' font-size='8.5' font-weight='700' fill='${line}' text-anchor='${anchor}'>${vals[n - 1].toFixed(2)}</text>`;
+
+  // 横轴：首 / 尾真实日期（M/D）
+  if (opt.labels && opt.labels.length === n) {
+    s += `<text x='${padL}' y='${H - 2.5}' font-size='7' fill='${txt}' text-anchor='start'>${opt.labels[0]}</text>`;
+    if (n > 1) s += `<text x='${W - padR}' y='${H - 2.5}' font-size='7' fill='${txt}' text-anchor='end'>${opt.labels[n - 1]}</text>`;
   }
 
   s += "</svg>";
@@ -188,6 +206,128 @@ export default async function (ctx) {
   const regionCandidates = regionParam.includes("/")
     ? [regionParam, regionParam.split("/")[0]]
     : [regionParam];
+
+  // ── BesFuel 官方核价历史：地区/油品映射 ─────────────────────────
+  // BesFuel（MIT 代码）把各地发改委公告逐期核成 data/prices.json 的 region.grades[].history，
+  // 节点是「价格执行日 + 元/升」，这才是真实逐轮历史；本组件只读取该快照，不自行推算价格。
+  const revProv = {};
+  Object.keys(PROV).forEach((cn) => { revProv[PROV[cn]] = cn; });
+  const revCity = {};
+  Object.keys(CITY).forEach((cn) => { revCity[CITY[cn]] = cn; });
+  let cnProv = revProv[regionParam.split("/")[0]] || "";
+  let cnCity = "";
+  if (regionParam.includes("/")) {
+    const c = revCity[regionParam.split("/")[1]];
+    if (c) { cnCity = c; if (!cnProv) cnProv = CITY_PROV[c] || ""; }
+  }
+  // 省级默认价区（BesFuel 无「全省唯一价」时取该省主价区，图注会显示 BesFuel 的完整价区名）
+  const BF_PROV = {
+    "北京": "beijing", "天津": "tianjin", "上海": "shanghai", "重庆": "chongqing",
+    "河北": "hebei", "山西": "shanxi", "内蒙古": "inner-mongolia-east", "吉林": "jilin",
+    "黑龙江": "heilongjiang-south", "江苏": "jiangsu", "浙江": "zhejiang", "安徽": "anhui",
+    "福建": "fujian", "江西": "jiangxi", "山东": "shandong", "河南": "henan", "湖南": "hunan",
+    "广东": "guangdong", "广西": "guangxi", "海南": "hainan", "四川": "sichuan-zone1",
+    "贵州": "guizhou-zone1", "云南": "yunnan-kunming", "西藏": "xizang-lhasa",
+    "陕西": "shaanxi-midnorth", "青海": "qinghai-zone1", "宁夏": "ningxia",
+    "新疆": "xinjiang-karamay-main",
+  };
+  const BF_CITY = {
+    "西安": "shaanxi-xian", "汉中": "shaanxi-south", "安康": "shaanxi-south", "商洛": "shaanxi-south",
+    "昆明": "yunnan-kunming", "曲靖": "yunnan-zone2", "楚雄": "yunnan-zone2", "玉溪": "yunnan-zone2",
+    "昭通": "yunnan-zone3", "红河": "yunnan-zone3", "文山": "yunnan-zone3", "大理": "yunnan-zone3",
+    "普洱": "yunnan-zone4", "保山": "yunnan-zone4", "丽江": "yunnan-zone4",
+    "西双版纳": "yunnan-zone5", "德宏": "yunnan-zone5", "迪庆": "yunnan-zone5", "怒江": "yunnan-zone5", "临沧": "yunnan-zone5",
+    "拉萨": "xizang-lhasa", "昌都": "xizang-changdu", "阿里": "xizang-ngari",
+    "克拉玛依": "xinjiang-karamay-main", "独山子": "xinjiang-dushanzi",
+    "呼和浩特": "inner-mongolia-west", "包头": "inner-mongolia-west", "鄂尔多斯": "inner-mongolia-west",
+    "乌海": "inner-mongolia-west", "巴彦淖尔": "inner-mongolia-west", "阿拉善": "inner-mongolia-west",
+  };
+  const bfKey = regionInvalid ? null : (cnCity && BF_CITY[cnCity]) || BF_PROV[cnProv] || null;
+  const BF_GRADE = { p92: "92", p95: "95", p98: "98", diesel: "diesel" };
+  const BF_URLS = [
+    "https://raw.githubusercontent.com/BensonLaur/BesFuel/main/data/prices.json",
+    "https://gcore.jsdelivr.net/gh/BensonLaur/BesFuel@main/data/prices.json",
+    "https://bensonlaur.github.io/BesFuel/data/prices.json",
+  ];
+  const BF_TTL = 6 * 3600 * 1000;
+  const BF_CACHE = `oilprice_bf_v1_${bfKey || "none"}`;
+  const bfHostOf = (u) => (String(u).match(/^https?:\/\/([^/]+)/) || [])[1] || "BesFuel";
+
+  /** 从 BesFuel 快照里摘出本地区的四种油品历史（只保留事实字段，附带来源域名与核对日期） */
+  function bfSlice(json, key) {
+    if (!json || typeof json !== "object" || !json.regions || typeof json.regions !== "object") return null;
+    const r = json.regions[key];
+    if (!r || !r.grades || typeof r.grades !== "object") return null;
+    const gaps = (Array.isArray(r.historyGaps) ? r.historyGaps : [])
+      .filter((g) => g && /^\d{4}-\d{2}-\d{2}$/.test(String(g.date)))
+      .map((g) => String(g.date));
+    const checked = String(r.checkedAt || json.checkedAt || "");
+    const notice = r.latestNotice && typeof r.latestNotice === "object" ? r.latestNotice : {};
+    const grades = {};
+    for (const gk of ["92", "95", "98", "diesel"]) {
+      const e = r.grades[gk];
+      if (!e || !Array.isArray(e.history)) continue;
+      const pts = e.history
+        .filter((x) => x && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date)) && isFinite(x.price) && x.price >= 0)
+        .map((x) => ({ date: String(x.date), price: +x.price, kind: "price" }))
+        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+      if (!pts.length) continue;
+      const last = pts[pts.length - 1];
+      // 与 BesFuel lib/history.js 同一规则：已核实的「不作调整」是观察节点（空心），不是新的价格生效日
+      if (notice.kind === "unchanged" && /^\d{4}-\d{2}-\d{2}$/.test(String(notice.date)) &&
+          String(notice.date) > last.date && /^\d{4}-\d{2}-\d{2}$/.test(checked) &&
+          String(notice.date) <= checked && notice.sourceUrl &&
+          isFinite(e.price) && Math.abs(+e.price - last.price) < 0.005 &&
+          !gaps.some((d) => d > last.date && d <= String(notice.date))) {
+        pts.push({ date: String(notice.date), price: last.price, kind: "unchanged" });
+      }
+      grades[gk] = { price: isFinite(e.price) ? +e.price : last.price, history: pts.slice(-36) };
+    }
+    if (!Object.keys(grades).length) return null;
+    const na = json.nationalAdjustment && typeof json.nationalAdjustment === "object" ? json.nationalAdjustment : {};
+    const nw = na.nextAdjustment && typeof na.nextAdjustment === "object" ? na.nextAdjustment : {};
+    return {
+      key, name: String(r.name || key), checkedAt: checked,
+      priceScope: String(r.priceScope || ""), gaps, grades,
+      nextDate: /^\d{4}-\d{2}-\d{2}$/.test(String(nw.date || "")) ? String(nw.date) : "",
+      nextLabel: String(nw.dateLabel || ""),
+    };
+  }
+
+  /** 读取并缓存历史切片；6 小时内复用缓存，源失效时退回旧缓存并标记 stale */
+  async function bfLoad() {
+    let cached = null;
+    try { cached = ctx.storage.getJSON(BF_CACHE); } catch (_) {}
+    const usable = cached && cached.grades && cached.grades[BF_GRADE[FUEL_KEY]];
+    if (usable && cached.fetchedAt && Date.now() - cached.fetchedAt < BF_TTL) {
+      return { slice: cached, stale: false, err: "" };
+    }
+    const started = Date.now();
+    let err = "";
+    for (const url of BF_URLS) {
+      if (Date.now() - started > 13000) { err = err || "历史源总超时"; break; }
+      try {
+        const resp = await ctx.http.get(url, {
+          headers: { "user-agent": "EgernOilWidget/4.1 (BesFuel official-price history)", accept: "application/json" },
+          timeout: 6000,
+        });
+        if (!resp || resp.status !== 200) { err = `HTTP ${resp ? resp.status : "?"}`; continue; }
+        const txt = await resp.text();
+        if (!txt || txt.length < 1000) { err = "响应过短"; continue; }
+        let json = null;
+        try { json = JSON.parse(txt); } catch (_) { err = "JSON 解析失败"; continue; }
+        const slice = bfSlice(json, bfKey);
+        if (!slice) { err = "缺少该地区数据"; continue; }
+        slice.fetchedAt = Date.now();
+        slice.source = bfHostOf(url);
+        slice.sourceUrl = url;
+        try { ctx.storage.setJSON(BF_CACHE, slice); } catch (_) {}
+        return { slice, stale: false, err: "" };
+      } catch (e) { err = (e && e.message) || "网络错误"; }
+    }
+    if (usable) return { slice: cached, stale: true, err };
+    return { slice: null, stale: true, err };
+  }
 
   const trendRaw = String(ctx.env.SHOW_TREND ?? "true").trim().toLowerCase();
   const SHOW_TREND = !["false", "0", "no", "off", "hide", "隐藏"].includes(trendRaw);
@@ -370,6 +510,17 @@ export default async function (ctx) {
     if (!hasCache) { fetchError = true; errorMsg = e.message; }
   }
 
+  // 官方核价历史（BesFuel 快照，独立于现价源：现价失败也照常尝试，历史失败也不影响现价）
+  let bf = null, bfStale = false, bfErr = "", bfReason = "";
+  if (SHOW_TREND && !isSmall && !isAccessory && !regionInvalid) {
+    if (!bfKey) bfReason = "uncovered";
+    else {
+      const r = await bfLoad();
+      bf = r.slice; bfStale = !!r.stale; bfErr = r.err || "";
+      if (!bf) bfReason = "fail";
+    }
+  }
+
   // ════════════════════════════════════════════════════════════
   // 4. 派生数据（调价日期 / 下轮窗口 / 走势点）
   // ════════════════════════════════════════════════════════════
@@ -378,11 +529,18 @@ export default async function (ctx) {
     adjDate = new Date(now.getFullYear(), adj.month - 1, adj.day);
     if (adjDate.getTime() - now.getTime() > 45 * 86400000) adjDate.setFullYear(now.getFullYear() - 1); // 跨年
   }
-  let nextDate = null, daysLeft = null;
-  if (adjDate) {
-    nextDate = addWorkdays(adjDate, 10);
+  let nextDate = null, daysLeft = null, nextSource = "local";
+  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const bfNextD = bf && /^\d{4}-\d{2}-\d{2}$/.test(bf.nextDate || "") ? new Date(`${bf.nextDate}T00:00:00`) : null;
+  if (bfNextD && !isNaN(bfNextD.getTime()) && bfNextD.getTime() >= today0.getTime()) {
+    nextDate = bfNextD;
+    nextSource = "besfuel";                 // BesFuel 快照里的官方规则+放假安排推算窗口
+  } else if (adjDate) {
+    nextDate = addWorkdays(adjDate, 10);    // 退回本地规则推算（标注「预计」）
+  }
+  if (nextDate) {
     daysLeft = Math.round((new Date(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate()).getTime()
-      - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
+      - today0.getTime()) / 86400000);
   }
 
   const allRows = [
@@ -405,19 +563,68 @@ export default async function (ctx) {
   const adjTxtSmall = adjUnit && adj && adj.range ? `${adjTxt} ${adjUnit}` : adjTxt;
   const adjColor = adj && adj.dir === "up" ? COLORS.up : adj && adj.dir === "down" ? COLORS.down : COLORS.secondary;
 
-  // 走势：取真实快照里该油品的点
-  let series = [];
+  // 走势：优先用 BesFuel 已核实的官方调价历史（真实价格节点 · 元/升，阶梯线）；
+  // 历史源失效且无缓存时，退回本脚本自己抓到的价格快照并明确标注；都没有就显示「暂无历史」，绝不画推测曲线。
+  let series = [], seriesKind = "none";
   if (SHOW_TREND) {
-    series = hist
-      .filter((h) => h.v && h.v[FUEL_KEY] !== null && h.v[FUEL_KEY] !== undefined && !isNaN(h.v[FUEL_KEY]))
-      .map((h) => ({ v: h.v[FUEL_KEY], d: h.d }));
-    if (series.length < 2) series = [];
+    const g = bf && bf.grades ? bf.grades[BF_GRADE[FUEL_KEY]] : null;
+    if (g && Array.isArray(g.history) && g.history.length >= 2) {
+      series = g.history.map((p) => ({ v: p.price, d: p.date, kind: p.kind || "price" }));
+      seriesKind = "official";
+    } else {
+      series = hist
+        .filter((h) => h.v && h.v[FUEL_KEY] !== null && h.v[FUEL_KEY] !== undefined && !isNaN(h.v[FUEL_KEY]))
+        .map((h) => ({ v: h.v[FUEL_KEY], d: h.d, kind: "price" }));
+      if (series.length >= 2) seriesKind = "local"; else series = [];
+    }
   }
   const mdLabel = (d) => {
     const part = String(d).split("-");
     return part.length === 3 ? `${+part[1]}/${+part[2]}` : String(d);
   };
   const seriesLabels = series.map((p) => mdLabel(p.d));
+  const seriesGaps = seriesKind === "official" && bf && Array.isArray(bf.gaps)
+    ? series.map((p, i) => (i > 0 && bf.gaps.some((d) => d > series[i - 1].d && d < p.d) ? i : -1)).filter((i) => i > 0)
+    : [];
+
+  // 最新官方核价与涨跌语义（同价重复的「不调整」节点不算涨跌）
+  const bfGradeMissing = !!(bf && bf.grades && !bf.grades[BF_GRADE[FUEL_KEY]]);
+  if (bfGradeMissing && !series.length) bfReason = "grade";
+  const bfLatest = seriesKind === "official" ? series[series.length - 1] : null;
+  const bfPrev = bfLatest ? [...series].reverse().find((p) => Math.abs(p.v - bfLatest.v) >= 0.005) : null;
+  const bfDelta = bfLatest ? (bfLatest.kind === "unchanged" ? 0 : bfPrev ? bfLatest.v - bfPrev.v : 0) : null;
+  const bfArrow = bfDelta === null ? "" : bfDelta > 0.004 ? "↑" : bfDelta < -0.004 ? "↓" : "→";
+  const bfDateLabel = bfLatest ? `${+bfLatest.d.slice(5, 7)}/${+bfLatest.d.slice(8, 10)}` : "";
+  const bfDeltaTxt = bfLatest ? (bfLatest.kind === "unchanged" ? "官方不调整" : `${bfArrow}${Math.abs(bfDelta).toFixed(2)}`) : "";
+  const bfColor = bfDelta !== null && bfDelta > 0.004 ? COLORS.up : bfDelta !== null && bfDelta < -0.004 ? COLORS.down : COLORS.secondary;
+  const bfRangeTxt = seriesKind === "official" && series.length
+    ? `${mdLabel(series[0].d)}-${mdLabel(series[series.length - 1].d)} · ${series.length} 个官方节点`
+    : "";
+  const bfCapShort = bfLatest
+    ? `${FUEL_LABEL}官方核价 ${bfLatest.v.toFixed(2)}元/升 · ${bfDateLabel} ${bfDeltaTxt}${bfStale ? " · 缓存" : ""}`
+    : bfReason === "uncovered"
+      ? "BesFuel 未收录该地区 · 只显示当前价"
+      : bfReason === "grade"
+        ? `BesFuel 未核价 ${FUEL_LABEL} · 不做推算`
+        : bfReason === "fail"
+          ? "官方核价历史暂不可用 · 现价照常"
+          : "暂无官方核价历史";
+  const bfCapLong = bfLatest
+    ? `${FUEL_LABEL} · 官方核价历史（元/升）· 最新 ${bfLatest.v.toFixed(2)} · ${bfDateLabel} 生效 · 较上轮 ${bfDeltaTxt}`
+    : bfReason === "uncovered"
+      ? "BesFuel 尚未收录该价区的官方核价历史，本组件只显示当前价，不猜测曲线"
+      : bfReason === "grade"
+        ? `BesFuel 未收录 ${FUEL_LABEL} 官方核价（该油号未逐期核价），不推算曲线`
+        : bfReason === "fail"
+          ? "官方核价历史暂不可用：现价与调价信息照常显示，下次刷新自动重试"
+          : "暂无官方核价历史数据";
+  const bfMetaTxt = seriesKind === "official"
+    ? `BesFuel ${bf.name} · 核对 ${bf.checkedAt ? `${bf.checkedAt.slice(5, 7)}/${bf.checkedAt.slice(8, 10)}` : "—"} · ${series.length} 个官方节点${bfStale ? " · 缓存" : ""} · 数据为公告事实`
+    : seriesKind === "local"
+      ? "本地快照走势（官方历史源不可用，仅显示本机真实抓到的调价快照）"
+      : "";
+
+
 
   // ════════════════════════════════════════════════════════════
   // 5. 通用构件（只用官方支持字段：无 justifyContent，无 alignItems:'stretch'）
@@ -469,7 +676,7 @@ export default async function (ctx) {
     return {
       type: "stack", direction: "column", alignItems: "start", width: o.w, gap: o.gap,
       children: [
-        { type: "text", text: "最近调价", font: { size: o.labelSize }, textColor: COLORS.tertiary, maxLines: 1 },
+        { type: "text", text: "最近调价（全国）", font: { size: o.labelSize }, textColor: COLORS.tertiary, maxLines: 1 },
         { type: "text", text: adjTxt, font: { size: o.valueSize, weight: "bold" }, textColor: adjColor, maxLines: 1, minScale: 0.55 },
         { type: "text", text: adjDate ? `${MD(adjDate)} 24时` : "日期暂无数据", font: { size: o.labelSize }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.7 },
         ...(o.showWindow ? [
@@ -569,21 +776,26 @@ export default async function (ctx) {
   // 7. 中号：四油品 + 极简 SVG 折线 + 调价两栏（显式宽度）
   // ════════════════════════════════════════════════════════════
   if (!isLarge) {
-    const CARD_W_M = 48, CHART_W_M = 205, CHART_H_M = 52, RIGHT_W = 94;
-    const cardH_M = 46, pad = [10, 10, 8, 10];
+    const CARD_W_M = 48, CHART_W_M = 205, CHART_H_M = 50, RIGHT_W = 94;
+    const cardH_M = 42, pad = [9, 10, 7, 10];
     const contentW = 338 - pad[1] - pad[3];        // 318
     const leftW = contentW - RIGHT_W - 1 - 16;      // 8 间距 ×2 + 1px 分隔
     const chartNodeM = SHOW_TREND && series.length >= 2
-      ? { type: "image", src: chartSVG(series.map((p) => p.v), seriesLabels, { w: CHART_W_M, h: CHART_H_M }), width: CHART_W_M, height: CHART_H_M }
+      ? { type: "image", src: chartSVG(series, { w: CHART_W_M, h: CHART_H_M, gaps: seriesGaps, labels: seriesLabels }), width: CHART_W_M, height: CHART_H_M }
       : {
           type: "stack", direction: "column", alignItems: "center", width: leftW, height: CHART_H_M, gap: 2,
           children: [
             { type: "spacer" },
-            { type: "text", text: SHOW_TREND ? "走势暂无历史" : "走势已关闭", font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
-            { type: "text", text: SHOW_TREND ? "该网页只有当前价，无逐轮历史；真实调价后自动累积" : "可在设置里打开", font: { size: 8 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
+            { type: "text", text: SHOW_TREND ? (bfLatest ? "官方核价历史不足 2 点" : (bfReason === "uncovered" ? "BesFuel 未收录该价区" : bfReason === "grade" ? "BesFuel 未核价该油号" : "官方历史源暂不可用")) : "走势已关闭", font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
+            { type: "text", text: SHOW_TREND ? (bfLatest ? "官方核对后自动扩展" : "当前价照常显示，下次刷新重试") : "可在设置里打开", font: { size: 8 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
             { type: "spacer" },
           ],
         };
+    const capNodeM = {
+      type: "text", text: bfCapShort, width: leftW, font: { size: 8.5, weight: "medium" },
+      textColor: bfLatest ? bfColor : COLORS.tertiary, maxLines: 1, minScale: 0.55,
+    };
+
 
     return {
       type: "widget",
@@ -599,6 +811,7 @@ export default async function (ctx) {
                   children: [
                     fuelRow({ w: leftW, h: cardH_M, cardW: CARD_W_M, gap: 5, labelSize: 10, priceSize: 15, radius: 10, padding: [3, 1, 3, 1] }),
                     chartNodeM,
+                    ...(series.length >= 2 ? [capNodeM] : []),
                   ],
                 },
                 vDivider(96),
@@ -615,20 +828,29 @@ export default async function (ctx) {
   // ════════════════════════════════════════════════════════════
   const padL = [14, 14, 10, 14];
   const contentW_L = 338 - padL[1] - padL[3];       // 310
-  const CHART_W_L = 300, CHART_H_L = 100;
+  const CHART_W_L = 300, CHART_H_L = 92;
   const fillCost = focusPrice !== null ? focusPrice * liters : null;
   const chartNodeL = SHOW_TREND && series.length >= 2
-    ? { type: "image", src: chartSVG(series.map((p) => p.v), seriesLabels, { w: CHART_W_L, h: CHART_H_L }), width: CHART_W_L, height: CHART_H_L }
+    ? { type: "image", src: chartSVG(series, { w: CHART_W_L, h: CHART_H_L, gaps: seriesGaps, labels: seriesLabels }), width: CHART_W_L, height: CHART_H_L }
     : {
         type: "stack", direction: "column", alignItems: "center", width: contentW_L, height: CHART_H_L, gap: 3,
         backgroundColor: COLORS.card, borderRadius: 12,
         children: [
           { type: "spacer" },
-          { type: "text", text: SHOW_TREND ? "走势暂无历史数据" : "走势已关闭", font: { size: 11 }, textColor: COLORS.secondary, maxLines: 1, textAlign: "center" },
-          { type: "text", text: SHOW_TREND ? "网页只提供当前价与最近调价，无逐轮历史；真实调价后自动记录，攒 2 点出图" : "可在模块设置里打开", font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 2, textAlign: "center", minScale: 0.7 },
+          { type: "text", text: SHOW_TREND ? bfCapLong : "走势已关闭", font: { size: 11 }, textColor: COLORS.secondary, maxLines: 2, textAlign: "center", minScale: 0.75 },
+          { type: "text", text: SHOW_TREND ? (bfReason === "uncovered" ? "BesFuel 只收录已核价的价区；当前价仍来自汽油价格网" : bfReason === "grade" ? "BesFuel 未对 98 号逐期核价，不使用邻近油号推算" : "当前价与调价信息照常显示，下次刷新自动重试") : "可在模块设置里打开", font: { size: 9.5 }, textColor: COLORS.tertiary, maxLines: 1, textAlign: "center", minScale: 0.7 },
           { type: "spacer" },
         ],
       };
+  const capNodeLCap = {
+    type: "stack", direction: "column", alignItems: "start", width: CHART_W_L, gap: 1,
+    children: [
+      { type: "text", text: bfCapLong, width: CHART_W_L, font: { size: 10.5, weight: "semibold" }, textColor: bfLatest ? bfColor : COLORS.secondary, maxLines: 1, minScale: 0.6 },
+      { type: "text", text: bfMetaTxt || "历史节点来自官方公告核对，现价来自汽油价格网", width: CHART_W_L, font: { size: 9 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.55 },
+    ],
+  };
+
+
 
   const colW_L = (contentW_L - 1 - 20) / 2;         // 两栏 + 1px 分隔 + 10×2 间距
 
@@ -643,6 +865,7 @@ export default async function (ctx) {
             children: [
               fuelRow({ w: contentW_L, h: 78, gap: 7, labelSize: 12, priceSize: 23, radius: 14, padding: [6, 1, 6, 1] }),
               chartNodeL,
+              ...(series.length >= 2 ? [capNodeLCap] : []),
               hDivider,
               {
                 type: "stack", direction: "row", alignItems: "center", width: contentW_L, gap: 10,
@@ -650,7 +873,7 @@ export default async function (ctx) {
                   ...(SHOW_TREND ? [{
                     type: "stack", direction: "column", alignItems: "start", width: colW_L, gap: 2,
                     children: [
-                      { type: "text", text: "调价信息", font: { size: 11 }, textColor: COLORS.tertiary, maxLines: 1 },
+                      { type: "text", text: "调价信息（全国）", font: { size: 11 }, textColor: COLORS.tertiary, maxLines: 1 },
                       { type: "text", text: adjTxt, font: { size: 21, weight: "bold" }, textColor: adjColor, maxLines: 1, minScale: 0.5 },
                       { type: "text", text: adjDate ? `${MD(adjDate)} 24时` : "日期暂无数据", font: { size: 11 }, textColor: COLORS.secondary, maxLines: 1, minScale: 0.75 },
                       { type: "text", text: nextDate ? `预计 ${MD(nextDate)} · ${daysLeft >= 0 ? `还有 ${daysLeft} 天` : "待更新"}` : "下轮窗口暂无数据", font: { size: 11 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.7 },
@@ -680,7 +903,7 @@ export default async function (ctx) {
         children: [
           { type: "text", text: `更新 ${timeStr}${hasCache && fetchError ? " · 缓存数据" : ""}`, font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.8 },
           { type: "spacer" },
-          { type: "text", text: "元/升 · 数据源 汽油价格网", font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.8 },
+          { type: "text", text: "现价 汽油价格网 · 历史 BesFuel", font: { size: 10 }, textColor: COLORS.tertiary, maxLines: 1, minScale: 0.8 },
         ],
       },
     ],
