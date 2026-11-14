@@ -9,7 +9,7 @@ Egern 模块 / 脚本 / 分流规则合集。每个模块自带原始 JS、模�
 
 ```
 widgets/            小组件类模块（generic 脚本 + widgets 声明）
-├── oil-price/      全国实时油价
+├── oil-price/      全国实时油价（小/中/大号三套布局）
 ├── holiday-countdown/ 节日倒数（春节/中秋/国庆…，内置农历表）
 ├── sticky-note/     便签（文字自定义 + 9 种纸张样式）
 ├── ...
@@ -34,7 +34,7 @@ docs/               说明与踩坑记录
 
 | 模块 | 说明 | 订阅地址 |
 | --- | --- | --- |
-| [全国实时油价](widgets/oil-price/README.md) | 92/95/98/柴油油价小组件，支持调价趋势，小/中/大号自适应 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/widgets/oil-price/oil-price.yaml` |
+| [全国实时油价](widgets/oil-price/README.md) | 92/95/98/柴油实时油价，小/中/大号三套布局（单油品大数字 / 四油品+走势折线 / 完整信息+加满金额）；走势只用真实抓取记录，下轮窗口按 10 个工作日推算 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/widgets/oil-price/oil-price.yaml` |
 | [节日倒数](widgets/holiday-countdown/README.md) | 距离下个节日还有几天，内置 2024–2050 农历与节气表，按画布自动排版 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/widgets/holiday-countdown/holiday-countdown.yaml` |
 | [便签](widgets/sticky-note/README.md) | 桌面便签，文字自己填（标题 + 8 行 + 页脚），9 种纸张样式、颜色/装饰/横线/字体/对齐可调 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/widgets/sticky-note/sticky-note.yaml` |
 | [通用增强（合一版）](rules/general-enhanced/README.md) | 三合一：私有网段/组播不走隧道 + 门户检测/STUN/联机/NTP/推送/NAS 等用真实 IP（每天跟随上游聚合）+ MITM 排除 | `https://raw.githubusercontent.com/a13609y/egern-modules-hub/main/rules/general-enhanced/general-enhanced.yaml` |
